@@ -35,6 +35,7 @@ def triage_errors(config: dict, error_details: str, project_dir: str = None):
         return False
 
     claude_cmd = heal_cfg.get("claude_code_path", "claude")
+    model = config.get("models", {}).get("self_heal", "")
     max_retries = heal_cfg.get("max_retries", 3)
     cwd = project_dir or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -78,9 +79,11 @@ CRITICAL: Only fix the immediate error. Do not refactor or improve unrelated cod
     for attempt in range(1, max_retries + 1):
         logger.info(f"Self-heal attempt {attempt}/{max_retries}")
         try:
+            cmd = [claude_cmd, "--dangerously-skip-permissions", "-p", prompt]
+            if model:
+                cmd.extend(["--model", model])
             result = subprocess.run(
-                [claude_cmd, "--dangerously-skip-permissions", "-p", prompt],
-                cwd=cwd, capture_output=True, text=True, timeout=600
+                cmd, cwd=cwd, capture_output=True, text=True, timeout=600
             )
 
             logger.info(f"Self-heal attempt {attempt} exit code: {result.returncode}")
@@ -182,10 +185,13 @@ Do NOT implement items that are not approved.
 Read CLAUDE.md for project context before making changes.
 """
 
+    model = config.get("models", {}).get("self_heal", "")
     try:
+        cmd = [claude_cmd, "--dangerously-skip-permissions", "-p", prompt]
+        if model:
+            cmd.extend(["--model", model])
         result = subprocess.run(
-            [claude_cmd, "--dangerously-skip-permissions", "-p", prompt],
-            cwd=cwd, capture_output=True, text=True, timeout=600
+            cmd, cwd=cwd, capture_output=True, text=True, timeout=600
         )
         if result.returncode == 0:
             logger.info("Approved TODO items implemented successfully")

@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS deals (
     bgg_rank INTEGER,
     bgg_weight REAL,
     bgg_url TEXT,
+    post_type TEXT,
     notes TEXT
 );
 
@@ -114,10 +115,12 @@ def get_deals_to_verify(conn, max_age_hours=24):
 
 
 def get_all_active_deals(conn):
-    """Get all active deals for re-verification every run."""
+    """Get all active deals for re-verification every run.
+    Only includes specific_deal posts (or not-yet-classified)."""
     return conn.execute("""
         SELECT * FROM deals
         WHERE status IN ('unverified', 'active')
+          AND (post_type IS NULL OR post_type = 'specific_deal')
         ORDER BY discovered_at DESC
     """).fetchall()
 
@@ -198,10 +201,11 @@ def get_active_deals_for_html(conn, limit=100):
 
 
 def get_deals_needing_enrichment(conn):
-    """Get deals with missing data (no bgg_id, no prices, no deal URL, etc.)."""
+    """Get specific_deal posts with missing data."""
     return conn.execute("""
         SELECT * FROM deals
         WHERE status IN ('active', 'unverified')
+          AND (post_type IS NULL OR post_type = 'specific_deal')
           AND (bgg_id IS NULL
                OR sale_price IS NULL
                OR original_price IS NULL
@@ -213,10 +217,11 @@ def get_deals_needing_enrichment(conn):
 
 
 def get_deals_for_deep_verify(conn):
-    """Get active/unverified deals that need intelligent verification."""
+    """Get specific_deal posts that need intelligent verification."""
     return conn.execute("""
         SELECT * FROM deals
         WHERE status IN ('active', 'unverified')
+          AND (post_type IS NULL OR post_type = 'specific_deal')
         ORDER BY last_verified_at ASC NULLS FIRST
     """).fetchall()
 
@@ -239,11 +244,12 @@ def update_deal_fields(conn, deal_id: int, **kwargs):
 
 
 def get_deals_needing_bgg_data(conn):
-    """Get deals with bgg_id but missing BGG stats."""
+    """Get specific_deal posts with bgg_id but missing BGG stats."""
     return conn.execute("""
         SELECT * FROM deals
         WHERE bgg_id IS NOT NULL
           AND (bgg_rating IS NULL OR bgg_rank IS NULL OR bgg_weight IS NULL)
+          AND (post_type IS NULL OR post_type = 'specific_deal')
         ORDER BY id
     """).fetchall()
 
@@ -258,11 +264,21 @@ def migrate_db(conn):
         "bgg_rank": "INTEGER",
         "bgg_weight": "REAL",
         "bgg_url": "TEXT",
+        "post_type": "TEXT",
     }
     for col, col_type in new_cols.items():
         if col not in columns:
             conn.execute(f"ALTER TABLE deals ADD COLUMN {col} {col_type}")
     conn.commit()
+
+
+def get_unclassified_deals(conn):
+    """Get deals that haven't been classified yet."""
+    return conn.execute("""
+        SELECT * FROM deals
+        WHERE post_type IS NULL
+        ORDER BY id
+    """).fetchall()
 
 
 def get_db_stats(conn):
@@ -272,6 +288,12 @@ def get_db_stats(conn):
         stats[status] = row[0]
     row = conn.execute("SELECT COUNT(*) FROM deals").fetchone()
     stats["total"] = row[0]
+    # Post type breakdown
+    for ptype in ("specific_deal", "generic_sale", "discussion", "question", "meta", "other"):
+        row = conn.execute("SELECT COUNT(*) FROM deals WHERE post_type=?", (ptype,)).fetchone()
+        stats[f"type_{ptype}"] = row[0]
+    row = conn.execute("SELECT COUNT(*) FROM deals WHERE post_type IS NULL").fetchone()
+    stats["type_unclassified"] = row[0]
     last_run = conn.execute("SELECT * FROM run_log ORDER BY id DESC LIMIT 1").fetchone()
     stats["last_run"] = dict(last_run) if last_run else None
     return stats

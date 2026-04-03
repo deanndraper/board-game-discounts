@@ -35,6 +35,14 @@ logging:
   level: "INFO"
   max_size_mb: 10
 
+# Model selection per step (haiku = cheap, sonnet = mid, opus = full)
+models:
+  classify: "haiku"
+  enrich: "haiku"
+  bgg: "haiku"
+  deep_verify: "sonnet"
+  self_heal: ""  # empty = use default (opus)
+
 # BoardGameGeek API (optional — falls back to Claude CLI if not set)
 # Register at https://boardgamegeek.com/using_the_xml_api to get a token
 bgg:

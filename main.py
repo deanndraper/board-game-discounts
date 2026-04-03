@@ -7,7 +7,7 @@ import traceback
 
 import yaml
 
-from bgd import db, rss, verify, html_gen, publisher, self_heal, enrich, deep_verify, bgg
+from bgd import db, rss, verify, html_gen, publisher, self_heal, enrich, deep_verify, bgg, classify
 from bgd.logger import setup_logger
 
 
@@ -56,9 +56,22 @@ def cmd_status(conn, logger):
     logger.info(f"  Unverified: {stats['unverified']}")
     logger.info(f"  Expired: {stats['expired']}")
     logger.info(f"  Sold out: {stats['sold_out']}")
+    logger.info("  --- Post Types ---")
+    logger.info(f"  Specific deals: {stats.get('type_specific_deal', 0)}")
+    logger.info(f"  Generic sales: {stats.get('type_generic_sale', 0)}")
+    logger.info(f"  Discussions: {stats.get('type_discussion', 0)}")
+    logger.info(f"  Questions: {stats.get('type_question', 0)}")
+    logger.info(f"  Other: {stats.get('type_other', 0) + stats.get('type_meta', 0)}")
+    logger.info(f"  Unclassified: {stats.get('type_unclassified', 0)}")
     if stats["last_run"]:
         lr = stats["last_run"]
         logger.info(f"  Last run: {lr.get('started_at', 'N/A')} — {lr.get('status', 'N/A')}")
+    return stats
+
+
+def cmd_classify(config, conn, logger):
+    """Classify RSS posts by type (specific_deal, discussion, question, etc.)."""
+    stats = classify.classify_deals(config, conn)
     return stats
 
 
@@ -83,7 +96,7 @@ def cmd_deep_verify(config, conn, logger):
 
 
 def cmd_run(config, conn, logger):
-    """Full pipeline: fetch → verify → generate → publish."""
+    """Full pipeline: fetch → classify → enrich → bgg → verify → generate → publish."""
     run_id = db.start_run(conn)
     errors = []
     deals_found = 0
@@ -96,21 +109,28 @@ def cmd_run(config, conn, logger):
         logger.error(f"Fetch failed: {e}", exc_info=True)
         errors.append(f"Fetch: {traceback.format_exc()}")
 
-    # 2. Verify
+    # 2. Classify (filter non-deals before spending tokens)
+    try:
+        cmd_classify(config, conn, logger)
+    except Exception as e:
+        logger.error(f"Classify failed: {e}", exc_info=True)
+        errors.append(f"Classify: {traceback.format_exc()}")
+
+    # 3. Verify (only specific_deal posts)
     try:
         verify_stats = cmd_verify(config, conn, logger)
     except Exception as e:
         logger.error(f"Verify failed: {e}", exc_info=True)
         errors.append(f"Verify: {traceback.format_exc()}")
 
-    # 3. Generate
+    # 4. Generate
     try:
         cmd_generate(config, conn, logger)
     except Exception as e:
         logger.error(f"Generate failed: {e}", exc_info=True)
         errors.append(f"Generate: {traceback.format_exc()}")
 
-    # 4. Publish
+    # 5. Publish
     try:
         cmd_publish(config, logger)
     except Exception as e:
@@ -148,8 +168,8 @@ def cmd_run(config, conn, logger):
 
 def main():
     parser = argparse.ArgumentParser(description="Board Game Discounts")
-    parser.add_argument("command", choices=["run", "fetch", "verify", "generate", "publish", "status",
-                                             "enrich", "deep-verify", "bgg"],
+    parser.add_argument("command", choices=["run", "fetch", "classify", "verify", "generate", "publish",
+                                             "status", "enrich", "deep-verify", "bgg"],
                         help="Command to execute")
     parser.add_argument("--config", default="config.yaml", help="Config file path")
     args = parser.parse_args()
@@ -166,6 +186,8 @@ def main():
             sys.exit(0 if result["status"] != "failed" else 1)
         elif args.command == "fetch":
             cmd_fetch(config, conn, logger)
+        elif args.command == "classify":
+            cmd_classify(config, conn, logger)
         elif args.command == "verify":
             cmd_verify(config, conn, logger)
         elif args.command == "generate":

@@ -103,6 +103,7 @@ def _parse_bgg_item(item, bgg_id):
 def _fetch_from_claude(deals, config):
     """Fetch BGG data via Claude CLI. Returns dict of {deal_id: data}."""
     claude_cmd = config.get("self_heal", {}).get("claude_code_path", "claude")
+    model = config.get("models", {}).get("bgg", "haiku")
     cwd = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     results = {}
 
@@ -138,9 +139,11 @@ Return ONLY a JSON array, no markdown:
 ]"""
 
         try:
+            cmd = [claude_cmd, "--print", "-p", prompt]
+            if model:
+                cmd.extend(["--model", model])
             result = subprocess.run(
-                [claude_cmd, "--print", "-p", prompt],
-                cwd=cwd, capture_output=True, text=True, timeout=180,
+                cmd, cwd=cwd, capture_output=True, text=True, timeout=180,
             )
 
             if result.returncode != 0:

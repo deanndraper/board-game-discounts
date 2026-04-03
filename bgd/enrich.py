@@ -135,6 +135,7 @@ def enrich_deals(config, conn):
     logger.info(f"Found {len(deals)} deals needing enrichment")
 
     claude_cmd = config.get("self_heal", {}).get("claude_code_path", "claude")
+    model = config.get("models", {}).get("enrich", "haiku")
     cwd = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     enriched_count = 0
 
@@ -146,9 +147,11 @@ def enrich_deals(config, conn):
         logger.info(f"Enriching batch {i // BATCH_SIZE + 1} ({len(batch)} deals)...")
 
         try:
+            cmd = [claude_cmd, "--print", "-p", prompt]
+            if model:
+                cmd.extend(["--model", model])
             result = subprocess.run(
-                [claude_cmd, "--print", "-p", prompt],
-                cwd=cwd, capture_output=True, text=True, timeout=120
+                cmd, cwd=cwd, capture_output=True, text=True, timeout=120
             )
 
             if result.returncode != 0:

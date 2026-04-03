@@ -92,6 +92,7 @@ def deep_verify_deals(config, conn):
     logger.info(f"Deep-verifying {len(deals)} deals...")
 
     claude_cmd = config.get("self_heal", {}).get("claude_code_path", "claude")
+    model = config.get("models", {}).get("deep_verify", "sonnet")
     cwd = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     now = datetime.utcnow().isoformat()
 
@@ -104,9 +105,11 @@ def deep_verify_deals(config, conn):
         logger.info(f"Deep-verify batch {i // BATCH_SIZE + 1} ({len(batch)} deals)...")
 
         try:
+            cmd = [claude_cmd, "--print", "-p", prompt]
+            if model:
+                cmd.extend(["--model", model])
             result = subprocess.run(
-                [claude_cmd, "--print", "-p", prompt],
-                cwd=cwd, capture_output=True, text=True, timeout=120
+                cmd, cwd=cwd, capture_output=True, text=True, timeout=120
             )
 
             if result.returncode != 0:
