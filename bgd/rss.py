@@ -87,10 +87,26 @@ def fetch_deals(config: dict) -> list[dict]:
         if not content:
             content = entry.get("summary", "")
 
-        # Look for external links in content
-        link_match = re.search(r'href="(https?://(?!(?:www\.)?reddit\.com)[^"]+)"', content)
-        if link_match:
-            deal_url = link_match.group(1)
+        # Extract all external links from content
+        all_links = re.findall(r'href="(https?://(?!(?:www\.)?reddit\.com)[^"]+)"', content)
+
+        # Non-retailer domains to deprioritize
+        non_retailer = {"boardgamegeek.com", "bgg.cc", "wikipedia.org", "imgur.com",
+                        "youtube.com", "youtu.be", "twitter.com", "x.com",
+                        "i.redd.it", "preview.redd.it", "v.redd.it"}
+
+        if all_links:
+            # Prefer known retailer links, then any non-BGG link, then first link
+            retailer_links = [u for u in all_links
+                              if not any(nr in u.lower() for nr in non_retailer)]
+            known_retailer_links = [u for u in retailer_links
+                                    if extract_retailer(u) != urlparse(u).netloc.lower().replace("www.", "")]
+            if known_retailer_links:
+                deal_url = known_retailer_links[0]
+            elif retailer_links:
+                deal_url = retailer_links[0]
+            else:
+                deal_url = all_links[0]
 
         title = entry.get("title", "")
         original, sale, discount = extract_prices(title)

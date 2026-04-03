@@ -127,15 +127,22 @@ def verify_deal(conn, deal, config: dict) -> str:
 
     logger.info(f"Verifying deal {deal_id}: {deal['title'][:60]}...")
 
-    # Skip Reddit URLs — they're not the deal page
-    if "reddit.com" in (url or ""):
-        logger.info(f"  Skipping Reddit URL for deal {deal_id}")
-        return old_status
+    # URLs that can't be verified as deal pages
+    unverifiable_domains = ("reddit.com", "i.redd.it", "preview.redd.it")
+    if any(d in (url or "") for d in unverifiable_domains):
+        logger.info(f"  Deal {deal_id}: non-retailer URL ({url[:50]}) — marking active (unverifiable)")
+        db.update_deal_status(conn, deal_id, "active", last_verified_at=now,
+                              notes="No retailer link found — deal from Reddit post only")
+        db.log_verification(conn, deal_id, old_status, "active",
+                            "skip", '{"reason": "non_retailer_url"}')
+        return "active"
 
     new_status = old_status
     details = {}
+    http_ok = False
 
     # Step 1: HTTP check
+    http_definitive_fail = False
     if "http_check" in methods:
         check = http_check(url, timeout)
         details["http_check"] = check
@@ -143,23 +150,19 @@ def verify_deal(conn, deal, config: dict) -> str:
             status_code = check.get("status_code", 0)
             if status_code in (404, 410):
                 new_status = "expired"
+                http_definitive_fail = True
                 logger.info(f"  Deal {deal_id}: HTTP {status_code} → expired")
+            elif status_code in (403, 503):
+                # Bot-blocked — don't count as failure, still try browser check
+                logger.info(f"  Deal {deal_id}: HTTP {status_code} (likely bot-blocked), will try browser")
             else:
-                # Increment failures
-                failures = deal["verification_failures"] + 1
-                if failures >= max_failures:
-                    new_status = "expired"
-                    logger.info(f"  Deal {deal_id}: {failures} failures → expired")
-                else:
-                    db.update_deal_status(conn, deal_id, old_status,
-                                          last_verified_at=now,
-                                          verification_failures=failures)
-                    db.log_verification(conn, deal_id, old_status, old_status,
-                                        "http_check", json.dumps(details))
-                    return old_status
+                # Genuine failure — increment counter but still try browser check
+                logger.info(f"  Deal {deal_id}: HTTP {status_code or 'error'}, will try browser")
+        else:
+            http_ok = True
 
-    # Step 2: Browser check (only if HTTP was OK)
-    if "browser" in methods and new_status not in ("expired", "sold_out"):
+    # Step 2: Browser check (skip only if HTTP gave a definitive answer)
+    if "browser" in methods and not http_definitive_fail:
         check = browser_check(url, timeout)
         details["browser"] = check
         if not check["ok"]:
@@ -167,9 +170,19 @@ def verify_deal(conn, deal, config: dict) -> str:
             if reason == "sold_out":
                 new_status = "sold_out"
                 logger.info(f"  Deal {deal_id}: sold out detected")
-            else:
+            elif reason == "expired":
                 new_status = "expired"
                 logger.info(f"  Deal {deal_id}: expired detected via browser")
+            elif http_ok:
+                # Browser check failed (timeout, blocked, etc.) but HTTP was fine.
+                # Trust the HTTP check — mark as active.
+                new_status = "active"
+                logger.info(f"  Deal {deal_id}: browser check failed but HTTP OK → active")
+            else:
+                # Both checks failed — but if it's just connectivity/bot issues
+                # (no definitive sold_out/expired signal), let the unreachable handler
+                # below manage the failure count instead of immediately expiring.
+                logger.info(f"  Deal {deal_id}: both checks inconclusive")
         else:
             new_status = "active"
             # Update price if we found one
@@ -179,6 +192,26 @@ def verify_deal(conn, deal, config: dict) -> str:
                 if deal["sale_price"] and current_price > deal["sale_price"] * 1.2:
                     new_status = "expired"
                     logger.info(f"  Deal {deal_id}: price increased → expired")
+
+    # If only HTTP check ran and passed, mark active
+    if http_ok and new_status == old_status:
+        new_status = "active"
+
+    # If both checks were inconclusive (bot-blocked), handle gracefully
+    if new_status == old_status and not http_ok and not http_definitive_fail:
+        failures = deal["verification_failures"] + 1
+        if failures >= max_failures:
+            new_status = "expired"
+            logger.info(f"  Deal {deal_id}: {failures} consecutive unreachable → expired")
+        else:
+            # Keep current status, just log the failure
+            logger.info(f"  Deal {deal_id}: unreachable ({failures}/{max_failures}), keeping {old_status}")
+            db.update_deal_status(conn, deal_id, old_status,
+                                  last_verified_at=now,
+                                  verification_failures=failures)
+            db.log_verification(conn, deal_id, old_status, old_status,
+                                "unreachable", json.dumps(details))
+            return old_status
 
     # Update the deal
     update_kwargs = {

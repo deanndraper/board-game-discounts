@@ -74,32 +74,32 @@ def cmd_run(config, conn, logger):
         deals_found = cmd_fetch(config, conn, logger)
     except Exception as e:
         logger.error(f"Fetch failed: {e}", exc_info=True)
-        errors.append(f"Fetch: {e}")
+        errors.append(f"Fetch: {traceback.format_exc()}")
 
     # 2. Verify
     try:
         verify_stats = cmd_verify(config, conn, logger)
     except Exception as e:
         logger.error(f"Verify failed: {e}", exc_info=True)
-        errors.append(f"Verify: {e}")
+        errors.append(f"Verify: {traceback.format_exc()}")
 
     # 3. Generate
     try:
         cmd_generate(config, conn, logger)
     except Exception as e:
         logger.error(f"Generate failed: {e}", exc_info=True)
-        errors.append(f"Generate: {e}")
+        errors.append(f"Generate: {traceback.format_exc()}")
 
     # 4. Publish
     try:
         cmd_publish(config, logger)
     except Exception as e:
         logger.error(f"Publish failed: {e}", exc_info=True)
-        errors.append(f"Publish: {e}")
+        errors.append(f"Publish: {traceback.format_exc()}")
 
     # Finalize run log
     status = "success" if not errors else ("partial" if deals_found or verify_stats else "failed")
-    error_text = "\n".join(errors) if errors else None
+    error_text = "\n---\n".join(errors) if errors else None
     db.finish_run(
         conn, run_id,
         deals_found=deals_found,
@@ -116,6 +116,12 @@ def cmd_run(config, conn, logger):
     if errors:
         logger.info("Errors detected — invoking self-healing...")
         self_heal.triage_errors(config, error_text)
+
+    # 6. Check for approved TODO items to implement
+    try:
+        self_heal.implement_approved_todos(config)
+    except Exception as e:
+        logger.warning(f"TODO implementation check failed: {e}")
 
     return {"run_id": run_id, "status": status, "errors": errors}
 
@@ -148,8 +154,12 @@ def main():
         elif args.command == "status":
             cmd_status(conn, logger)
     except Exception as e:
-        logger.error(f"Fatal error: {e}", exc_info=True)
-        self_heal.triage_errors(config, traceback.format_exc())
+        logger.error(f"Fatal error in '{args.command}': {e}", exc_info=True)
+        error_context = (
+            f"Command: python main.py {args.command}\n"
+            f"Traceback:\n{traceback.format_exc()}"
+        )
+        self_heal.triage_errors(config, error_context)
         sys.exit(1)
     finally:
         conn.close()
