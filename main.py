@@ -7,7 +7,7 @@ import traceback
 
 import yaml
 
-from bgd import db, rss, verify, html_gen, publisher, self_heal, enrich, deep_verify
+from bgd import db, rss, verify, html_gen, publisher, self_heal, enrich, deep_verify, bgg
 from bgd.logger import setup_logger
 
 
@@ -63,8 +63,16 @@ def cmd_status(conn, logger):
 
 
 def cmd_enrich(config, conn, logger):
-    """Enrich deals with missing data via Claude Code CLI."""
+    """Enrich deals with missing data via Claude Code CLI, then fetch BGG stats."""
     stats = enrich.enrich_deals(config, conn)
+    bgg_stats = bgg.fetch_bgg_data(config, conn)
+    stats["bgg_updated"] = bgg_stats.get("updated", 0)
+    return stats
+
+
+def cmd_bgg(config, conn, logger):
+    """Fetch BGG ratings, ranks, and weight for deals with bgg_id."""
+    stats = bgg.fetch_bgg_data(config, conn)
     return stats
 
 
@@ -141,7 +149,7 @@ def cmd_run(config, conn, logger):
 def main():
     parser = argparse.ArgumentParser(description="Board Game Discounts")
     parser.add_argument("command", choices=["run", "fetch", "verify", "generate", "publish", "status",
-                                             "enrich", "deep-verify"],
+                                             "enrich", "deep-verify", "bgg"],
                         help="Command to execute")
     parser.add_argument("--config", default="config.yaml", help="Config file path")
     args = parser.parse_args()
@@ -170,6 +178,8 @@ def main():
             cmd_enrich(config, conn, logger)
         elif args.command == "deep-verify":
             cmd_deep_verify(config, conn, logger)
+        elif args.command == "bgg":
+            cmd_bgg(config, conn, logger)
     except Exception as e:
         logger.error(f"Fatal error in '{args.command}': {e}", exc_info=True)
         error_context = (

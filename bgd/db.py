@@ -23,6 +23,10 @@ CREATE TABLE IF NOT EXISTS deals (
     verification_failures INTEGER DEFAULT 0,
     expires_at DATETIME,
     bgg_id INTEGER,
+    bgg_rating REAL,
+    bgg_rank INTEGER,
+    bgg_weight REAL,
+    bgg_url TEXT,
     notes TEXT
 );
 
@@ -234,13 +238,31 @@ def update_deal_fields(conn, deal_id: int, **kwargs):
     conn.commit()
 
 
+def get_deals_needing_bgg_data(conn):
+    """Get deals with bgg_id but missing BGG stats."""
+    return conn.execute("""
+        SELECT * FROM deals
+        WHERE bgg_id IS NOT NULL
+          AND (bgg_rating IS NULL OR bgg_rank IS NULL OR bgg_weight IS NULL)
+        ORDER BY id
+    """).fetchall()
+
+
 def migrate_db(conn):
     """Add new columns if they don't exist (safe for existing DBs)."""
     cursor = conn.execute("PRAGMA table_info(deals)")
     columns = {row[1] for row in cursor.fetchall()}
-    if "bgg_id" not in columns:
-        conn.execute("ALTER TABLE deals ADD COLUMN bgg_id INTEGER")
-        conn.commit()
+    new_cols = {
+        "bgg_id": "INTEGER",
+        "bgg_rating": "REAL",
+        "bgg_rank": "INTEGER",
+        "bgg_weight": "REAL",
+        "bgg_url": "TEXT",
+    }
+    for col, col_type in new_cols.items():
+        if col not in columns:
+            conn.execute(f"ALTER TABLE deals ADD COLUMN {col} {col_type}")
+    conn.commit()
 
 
 def get_db_stats(conn):

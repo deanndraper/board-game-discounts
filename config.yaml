@@ -35,6 +35,11 @@ logging:
   level: "INFO"
   max_size_mb: 10
 
+# BoardGameGeek API (optional — falls back to Claude CLI if not set)
+# Register at https://boardgamegeek.com/using_the_xml_api to get a token
+bgg:
+  api_token: ""
+
 # Self-healing
 self_heal:
   enabled: true

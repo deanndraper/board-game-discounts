@@ -3,3 +3,4 @@ feedparser
 jinja2
 requests
 beautifulsoup4
+lxml

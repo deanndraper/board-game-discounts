@@ -218,6 +218,41 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             font-size: 0.8rem;
         }
 
+        /* Score pill (BGG rating) */
+        .score-pill {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.82rem;
+        }
+        .score-high { background: #dcfce7; color: #166534; }
+        .score-mid { background: #fef9c3; color: #854d0e; }
+        .score-low { background: #fee2e2; color: #991b1b; }
+
+        /* Rank badge */
+        .rank-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.8rem;
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+
+        /* Weight pill */
+        .weight-pill {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.82rem;
+        }
+        .weight-heavy { background: #fee2e2; color: #991b1b; }
+        .weight-mid { background: #fef9c3; color: #854d0e; }
+        .weight-light { background: #dcfce7; color: #166534; }
+
         /* Retailer tag */
         .retailer-tag {
             display: inline-block;
@@ -356,8 +391,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     formatter: function(cell) {
                         var row = cell.getRow().getData();
                         var name = cell.getValue() || row.title || "";
+                        var bggUrl = row.bgg_url;
                         var bgg = row.bgg_id;
-                        if (bgg) {
+                        if (bggUrl) {
+                            return '<a class="bgg-link" href="' + bggUrl + '" target="_blank" title="View on BGG">' + name + '</a>';
+                        } else if (bgg) {
                             return '<a class="bgg-link" href="https://boardgamegeek.com/boardgame/' + bgg + '" target="_blank" title="View on BGG">' + name + '</a>';
                         }
                         return "<strong>" + name + "</strong>";
@@ -410,6 +448,44 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                         var v = cell.getValue();
                         if (v == null) return "";
                         return '<span class="discount-pill ' + discountClass(v) + '">' + Math.round(v) + '% off</span>';
+                    }
+                },
+                {
+                    title: "BGG Rating",
+                    field: "bgg_rating",
+                    width: 95,
+                    hozAlign: "center",
+                    sorter: "number",
+                    formatter: function(cell) {
+                        var v = cell.getValue();
+                        if (v == null) return "";
+                        var cls = v >= 7.5 ? "score-high" : v >= 6 ? "score-mid" : "score-low";
+                        return '<span class="score-pill ' + cls + '">' + v.toFixed(1) + '</span>';
+                    }
+                },
+                {
+                    title: "BGG Rank",
+                    field: "bgg_rank",
+                    width: 85,
+                    hozAlign: "center",
+                    sorter: "number",
+                    formatter: function(cell) {
+                        var v = cell.getValue();
+                        if (v == null) return "";
+                        return '<span class="rank-badge">#' + v + '</span>';
+                    }
+                },
+                {
+                    title: "Weight",
+                    field: "bgg_weight",
+                    width: 80,
+                    hozAlign: "center",
+                    sorter: "number",
+                    formatter: function(cell) {
+                        var v = cell.getValue();
+                        if (v == null) return "";
+                        var cls = v >= 3.5 ? "weight-heavy" : v >= 2 ? "weight-mid" : "weight-light";
+                        return '<span class="weight-pill ' + cls + '">' + v.toFixed(1) + '</span>';
                     }
                 },
                 {
