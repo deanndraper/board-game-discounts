@@ -12,6 +12,8 @@ Python CLI tool that monitors r/boardgamedeals via RSS, verifies deals on retail
   - `html_gen.py` — Jinja2 HTML generator
   - `publisher.py` — Git commit/push for GitHub Pages
   - `logger.py` — Rotating file logger
+  - `enrich.py` — Fill missing deal data via Claude Code CLI (BGG IDs, prices, URLs)
+  - `deep_verify.py` — Intelligent deal verification via Claude Code CLI
   - `self_heal.py` — Error triage via Claude Code CLI
 - `config.yaml` — All configuration
 - `templates/index.html.j2` — HTML template
@@ -21,12 +23,14 @@ Python CLI tool that monitors r/boardgamedeals via RSS, verifies deals on retail
 ## Commands
 
 ```
-python main.py run        # Full pipeline
-python main.py fetch      # Fetch new deals from RSS
-python main.py verify     # Verify all active/unverified deals
-python main.py generate   # Regenerate HTML
-python main.py publish    # Git commit & push docs/
-python main.py status     # Show DB stats
+python main.py run          # Full pipeline
+python main.py fetch        # Fetch new deals from RSS
+python main.py verify       # Verify all active/unverified deals
+python main.py enrich       # Fill missing data via Claude CLI (BGG IDs, prices, URLs)
+python main.py deep-verify  # Intelligent verification via Claude CLI
+python main.py generate     # Regenerate HTML
+python main.py publish      # Git commit & push docs/
+python main.py status       # Show DB stats
 ```
 
 ## Key Design Patterns

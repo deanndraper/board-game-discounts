@@ -7,7 +7,7 @@ import traceback
 
 import yaml
 
-from bgd import db, rss, verify, html_gen, publisher, self_heal
+from bgd import db, rss, verify, html_gen, publisher, self_heal, enrich, deep_verify
 from bgd.logger import setup_logger
 
 
@@ -59,6 +59,18 @@ def cmd_status(conn, logger):
     if stats["last_run"]:
         lr = stats["last_run"]
         logger.info(f"  Last run: {lr.get('started_at', 'N/A')} — {lr.get('status', 'N/A')}")
+    return stats
+
+
+def cmd_enrich(config, conn, logger):
+    """Enrich deals with missing data via Claude Code CLI."""
+    stats = enrich.enrich_deals(config, conn)
+    return stats
+
+
+def cmd_deep_verify(config, conn, logger):
+    """Deep-verify deals using Claude Code CLI intelligence."""
+    stats = deep_verify.deep_verify_deals(config, conn)
     return stats
 
 
@@ -128,7 +140,8 @@ def cmd_run(config, conn, logger):
 
 def main():
     parser = argparse.ArgumentParser(description="Board Game Discounts")
-    parser.add_argument("command", choices=["run", "fetch", "verify", "generate", "publish", "status"],
+    parser.add_argument("command", choices=["run", "fetch", "verify", "generate", "publish", "status",
+                                             "enrich", "deep-verify"],
                         help="Command to execute")
     parser.add_argument("--config", default="config.yaml", help="Config file path")
     args = parser.parse_args()
@@ -153,6 +166,10 @@ def main():
             cmd_publish(config, logger)
         elif args.command == "status":
             cmd_status(conn, logger)
+        elif args.command == "enrich":
+            cmd_enrich(config, conn, logger)
+        elif args.command == "deep-verify":
+            cmd_deep_verify(config, conn, logger)
     except Exception as e:
         logger.error(f"Fatal error in '{args.command}': {e}", exc_info=True)
         error_context = (

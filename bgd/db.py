@@ -22,8 +22,11 @@ CREATE TABLE IF NOT EXISTS deals (
     status TEXT DEFAULT 'unverified',
     verification_failures INTEGER DEFAULT 0,
     expires_at DATETIME,
+    bgg_id INTEGER,
     notes TEXT
 );
+
+CREATE INDEX IF NOT EXISTS idx_deals_status ON deals(status);
 
 CREATE TABLE IF NOT EXISTS verification_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -63,6 +66,7 @@ def init_db(db_path=None):
     conn = get_connection(db_path)
     conn.executescript(SCHEMA)
     conn.commit()
+    migrate_db(conn)
     return conn
 
 
@@ -187,6 +191,56 @@ def get_active_deals_for_html(conn, limit=100):
         ORDER BY discount_pct DESC, discovered_at DESC
         LIMIT ?
     """, (limit,)).fetchall()
+
+
+def get_deals_needing_enrichment(conn):
+    """Get deals with missing data (no bgg_id, no prices, no deal URL, etc.)."""
+    return conn.execute("""
+        SELECT * FROM deals
+        WHERE status IN ('active', 'unverified')
+          AND (bgg_id IS NULL
+               OR sale_price IS NULL
+               OR original_price IS NULL
+               OR discount_pct IS NULL
+               OR url LIKE '%reddit.com%'
+               OR url LIKE '%i.redd.it%')
+        ORDER BY id
+    """).fetchall()
+
+
+def get_deals_for_deep_verify(conn):
+    """Get active/unverified deals that need intelligent verification."""
+    return conn.execute("""
+        SELECT * FROM deals
+        WHERE status IN ('active', 'unverified')
+        ORDER BY last_verified_at ASC NULLS FIRST
+    """).fetchall()
+
+
+def update_deal_fields(conn, deal_id: int, **kwargs):
+    """Update arbitrary fields on a deal."""
+    if not kwargs:
+        return
+    fields = []
+    values = []
+    for key, val in kwargs.items():
+        if val is not None:
+            fields.append(f"{key} = ?")
+            values.append(val)
+    if not fields:
+        return
+    values.append(deal_id)
+    conn.execute(f"UPDATE deals SET {', '.join(fields)} WHERE id = ?", values)
+    conn.commit()
+
+
+def migrate_db(conn):
+    """Add new columns if they don't exist (safe for existing DBs)."""
+    cursor = conn.execute("PRAGMA table_info(deals)")
+    columns = {row[1] for row in cursor.fetchall()}
+    if "bgg_id" not in columns:
+        conn.execute("ALTER TABLE deals ADD COLUMN bgg_id INTEGER")
+        conn.commit()
 
 
 def get_db_stats(conn):
