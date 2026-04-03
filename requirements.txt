@@ -1,0 +1,5 @@
+pyyaml
+feedparser
+jinja2
+requests
+beautifulsoup4

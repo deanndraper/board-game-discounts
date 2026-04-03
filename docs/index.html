@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Board Game Deals</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+        header {
+            background: #16213e;
+            padding: 1.5rem;
+            text-align: center;
+            border-bottom: 2px solid #0f3460;
+        }
+        header h1 { color: #e94560; font-size: 1.8rem; }
+        header p { color: #999; margin-top: 0.3rem; font-size: 0.9rem; }
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            padding: 1rem;
+            background: #16213e;
+            border-bottom: 1px solid #0f3460;
+        }
+        .stats span { font-size: 0.9rem; color: #aaa; }
+        .stats strong { color: #e94560; }
+        .deals {
+            max-width: 1000px;
+            margin: 1.5rem auto;
+            padding: 0 1rem;
+            display: grid;
+            gap: 1rem;
+        }
+        .deal {
+            background: #16213e;
+            border-radius: 8px;
+            padding: 1.2rem;
+            border: 1px solid #0f3460;
+            transition: border-color 0.2s;
+        }
+        .deal:hover { border-color: #e94560; }
+        .deal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+        .deal-title {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: #fff;
+            flex: 1;
+        }
+        .deal-title a { color: #fff; text-decoration: none; }
+        .deal-title a:hover { color: #e94560; }
+        .discount-badge {
+            background: #e94560;
+            color: #fff;
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+        .deal-meta {
+            display: flex;
+            gap: 1.5rem;
+            margin-top: 0.6rem;
+            font-size: 0.85rem;
+            color: #999;
+            flex-wrap: wrap;
+        }
+        .deal-meta .price {
+            color: #4ecca3;
+            font-weight: 600;
+        }
+        .deal-meta .original-price {
+            text-decoration: line-through;
+            color: #666;
+        }
+        .deal-meta .retailer { color: #aaa; }
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: #555;
+            font-size: 0.8rem;
+        }
+        @media (max-width: 600px) {
+            .deal-header { flex-direction: column; }
+            .deal-meta { gap: 0.8rem; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Board Game Deals</h1>
+        <p>Updated 2026-04-03 22:00 UTC</p>
+    </header>
+    <div class="stats">
+        <span><strong>11</strong> active deals</span>
+    </div>
+    <div class="deals">
+        
+        <div class="deal">
+            <div class="deal-header">
+                <div class="deal-title">
+                    <a href="https://i.redd.it/fyd654qpb6rg1.png" target="_blank" rel="noopener">Us Amazon 50 percent off ticket to ride Iberia</a>
+                </div>
+                
+            </div>
+            <div class="deal-meta">
+                
+                
+                <span class="retailer">i.redd.it</span>
+                
+                <span>2026-03-25</span>
+                
+            </div>
+        </div>
+        
+        <div class="deal">
+            <div class="deal-header">
+                <div class="deal-title">
+                    <a href="https://www.amazon.com/dp/B08DG63MBG" target="_blank" rel="noopener">Marvel Splendor</a>
+                </div>
+                
+            </div>
+            <div class="deal-meta">
+                
+                <span class="price">$27.99</span>
+                
+                
+                <span class="retailer">Amazon</span>
+                
+                <span>2026-03-25</span>
+                
+            </div>
+        </div>
+        
+        <div class="deal">
+            <div class="deal-header">
+                <div class="deal-title">
+                    <a href="https://i.redd.it/rdgv2hmc77rg1.png" target="_blank" rel="noopener">US Amazon catan energies 50 percent off</a>
+                </div>
+                
+            </div>
+            <div class="deal-meta">
+                
+                
+                <span class="retailer">i.redd.it</span>
+                
+                <span>2026-03-25</span>
+                
+            </div>
+        </div>
+        
+        <div class="deal">
+            <div class="deal-header">
+                <div class="deal-title">
+                    <a href="https://i.redd.it/n2zan72n18rg1.png" target="_blank" rel="noopener">Splendur marvel 30 percent off Amazon USA sorry don&#39;t know how to post link</a>
+                </div>
+                
+            </div>
+            <div class="deal-meta">
+                
+                
+                <span class="retailer">i.redd.it</span>
+                
+                <span>2026-03-25</span>
+                
+            </div>
+        </div>
+        
+        <div class="deal">
+            <div class="deal-header">
+                <div class="deal-title">
+                    <a href="https://www.amazon.com/dp/B0FGDMQQRX?ref=cm_sw_r_cso_cp_apan_dp_QDZR39EDNTXJZKEYMXZE&amp;amp;ref_=cm_sw_r_cso_cp_apan_dp_QDZR39EDNTXJZKEYMXZE&amp;amp;social_share=cm_sw_r_cso_cp_apan_dp_QDZR39EDNTXJZKEYMXZE" target="_blank" rel="noopener">Forest Shuffle Dartmoor</a>
+                </div>
+                
+            </div>
+            <div class="deal-meta">
+                
+                <span class="price">$21.99</span>
+                
+                
+                <span class="retailer">Amazon</span>
+                
+                <span>2026-03-26</span>
+                
+            </div>
+        </div>
+        
+        <div class="deal">
+            <div class="deal-header">
+                <div class="deal-title">
+                    <a href="https://boardhavengames.com/pages/daily-flash-sale" target="_blank" rel="noopener">Furnace for</a>
+                </div>
+                
+            </div>
+            <div class="deal-meta">
+                
+                <span class="price">$22.22</span>
+                
+                
+                <span class="retailer">boardhavengames.com</span>
+                
+                <span>2026-03-27</span>
+                
+            </div>
+        </div>
+        
+        <div class="deal">
+            <div class="deal-header">
+                <div class="deal-title">
+                    <a href="https://www.amazon.com/Dragonwood-Game-Dice-Daring-Board/dp/B00UB7OV7K/" target="_blank" rel="noopener">Dragonwood for</a>
+                </div>
+                
+            </div>
+            <div class="deal-meta">
+                
+                <span class="price">$11.93</span>
+                
+                
+                <span class="retailer">Amazon</span>
+                
+                <span>2026-03-29</span>
+                
+            </div>
+        </div>
+        
+        <div class="deal">
+            <div class="deal-header">
+                <div class="deal-title">
+                    <a href="https://www.philibertnet.com/fr/content/73-les-ventes-privees-de-philibert" target="_blank" rel="noopener">River Valley Glassworks 9,97€</a>
+                </div>
+                
+            </div>
+            <div class="deal-meta">
+                
+                
+                <span class="retailer">philibertnet.com</span>
+                
+                <span>2026-03-30</span>
+                
+            </div>
+        </div>
+        
+        <div class="deal">
+            <div class="deal-header">
+                <div class="deal-title">
+                    <a href="https://www.amazon.com/Halloween-1978-The-Board-Game/dp/B0CDGDNZMX" target="_blank" rel="noopener">Halloween 1978 The Board Game</a>
+                </div>
+                
+            </div>
+            <div class="deal-meta">
+                
+                <span class="price">$33.64</span>
+                
+                
+                <span class="retailer">Amazon</span>
+                
+                <span>2026-03-30</span>
+                
+            </div>
+        </div>
+        
+        <div class="deal">
+            <div class="deal-header">
+                <div class="deal-title">
+                    <a href="https://garphill.com/" target="_blank" rel="noopener">Multiple Website Deals</a>
+                </div>
+                
+            </div>
+            <div class="deal-meta">
+                
+                
+                <span class="retailer">garphill.com</span>
+                
+                <span>2026-03-31</span>
+                
+            </div>
+        </div>
+        
+        <div class="deal">
+            <div class="deal-header">
+                <div class="deal-title">
+                    <a href="https://boardhavengames.com/pages/daily-flash-sale" target="_blank" rel="noopener">Joyride: Survival of the Fastest</a>
+                </div>
+                
+            </div>
+            <div class="deal-meta">
+                
+                <span class="price">$39.99</span>
+                
+                
+                <span class="retailer">boardhavengames.com</span>
+                
+                <span>2026-04-03</span>
+                
+            </div>
+        </div>
+        
+    </div>
+    <footer>
+        Deals sourced from r/boardgamedeals | Generated 2026-04-03 22:00 UTC
+    </footer>
+</body>
+</html>

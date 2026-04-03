@@ -1,0 +1,42 @@
+# Reddit RSS source
+reddit:
+  subreddit: boardgamedeals
+  feed_url: "https://www.reddit.com/r/boardgamedeals/new/.rss"
+  max_posts: 50
+
+# Deal verification
+verification:
+  enabled: true
+  max_age_hours: 24
+  max_failures: 3
+  timeout_seconds: 30
+  methods:
+    - http_check
+    - browser
+
+# HTML generation
+html:
+  output_dir: "docs"
+  template: "templates/index.html.j2"
+  title: "Board Game Deals"
+  max_deals_shown: 100
+  show_expired: false
+
+# Publishing
+publish:
+  enabled: true
+  auto_commit: true
+  branch: "main"
+  commit_message: "Update deals - {timestamp}"
+
+# Logging
+logging:
+  file: "logs/bgd.log"
+  level: "INFO"
+  max_size_mb: 10
+
+# Self-healing
+self_heal:
+  enabled: true
+  claude_code_path: "claude"
+  max_retries: 3
