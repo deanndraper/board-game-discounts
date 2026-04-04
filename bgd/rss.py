@@ -1,9 +1,10 @@
 import re
 import logging
 from datetime import datetime
+from email.utils import parsedate
 from urllib.parse import urlparse
+from xml.etree import ElementTree
 
-import feedparser
 import requests
 
 logger = logging.getLogger("bgd")
@@ -67,36 +68,77 @@ def fetch_deals(config: dict) -> list[dict]:
     max_posts = reddit_cfg.get("max_posts", 50)
 
     logger.info(f"Fetching RSS feed: {feed_url}")
-    # Pre-fetch with proper User-Agent since Reddit blocks default feedparser UA
     resp = requests.get(feed_url, headers={"User-Agent": "BoardGameDeals/1.0"}, timeout=15)
-    feed = feedparser.parse(resp.text)
+    resp.raise_for_status()
 
-    if feed.bozo:
-        logger.warning(f"RSS feed parse warning: {feed.bozo_exception}")
+    # Parse Atom/RSS with stdlib ElementTree
+    root = ElementTree.fromstring(resp.content)
+    ns = {}
+    # Detect namespace from root tag
+    if root.tag.startswith("{"):
+        ns_uri = root.tag[1:root.tag.index("}")]
+        ns = {"atom": ns_uri}
+
+    # Support both Atom (<entry>) and RSS 2.0 (<item>) feeds
+    if ns:
+        entries = root.findall(".//atom:entry", ns)
+    else:
+        entries = root.findall(".//item")
+
+    def _text(el, tag, ns_map):
+        child = el.find(tag, ns_map) if ns_map else el.find(tag)
+        return child.text.strip() if child is not None and child.text else ""
+
+    def _attr(el, tag, attr, ns_map):
+        child = el.find(tag, ns_map) if ns_map else el.find(tag)
+        return child.get(attr, "") if child is not None else ""
+
+    def _parse_date(s):
+        if not s:
+            return None
+        try:
+            # Atom: 2024-01-01T12:00:00+00:00
+            return datetime.fromisoformat(s.replace("Z", "+00:00")).replace(tzinfo=None).isoformat()
+        except ValueError:
+            pass
+        try:
+            t = parsedate(s)
+            if t:
+                return datetime(*t[:6]).isoformat()
+        except Exception:
+            pass
+        return None
 
     deals = []
-    for entry in feed.entries[:max_posts]:
-        # The link in the RSS entry is to the Reddit post.
-        # The actual deal URL is often in the post content or the link itself.
-        reddit_url = entry.get("link", "")
-        post_id = entry.get("id", reddit_url)
+    for entry in entries[:max_posts]:
+        if ns:
+            # Atom feed
+            post_id = _text(entry, "atom:id", ns)
+            title = _text(entry, "atom:title", ns)
+            reddit_url = _attr(entry, "atom:link[@rel='alternate']", "href", ns) or \
+                         _attr(entry, "atom:link", "href", ns)
+            content = _text(entry, "atom:content", ns) or _text(entry, "atom:summary", ns)
+            posted_at = _parse_date(_text(entry, "atom:published", ns) or _text(entry, "atom:updated", ns))
+        else:
+            # RSS 2.0 feed
+            post_id = _text(entry, "guid", {})
+            title = _text(entry, "title", {})
+            reddit_url = _text(entry, "link", {})
+            content = _text(entry, "description", {})
+            posted_at = _parse_date(_text(entry, "pubDate", {}))
 
-        # Try to find the actual deal URL from the content
-        deal_url = reddit_url
-        content = entry.get("content", [{}])[0].get("value", "") if entry.get("content") else ""
-        if not content:
-            content = entry.get("summary", "")
+        if not reddit_url:
+            reddit_url = post_id
 
         # Extract all external links from content
+        deal_url = reddit_url
         all_links = re.findall(r'href="(https?://(?!(?:www\.)?reddit\.com)[^"]+)"', content)
 
-        # Non-retailer domains to deprioritize
         non_retailer = {"boardgamegeek.com", "bgg.cc", "wikipedia.org", "imgur.com",
                         "youtube.com", "youtu.be", "twitter.com", "x.com",
                         "i.redd.it", "preview.redd.it", "v.redd.it"}
 
         if all_links:
-            # Prefer known retailer links, then any non-BGG link, then first link
             retailer_links = [u for u in all_links
                               if not any(nr in u.lower() for nr in non_retailer)]
             known_retailer_links = [u for u in retailer_links
@@ -105,19 +147,12 @@ def fetch_deals(config: dict) -> list[dict]:
                 deal_url = known_retailer_links[0]
             elif retailer_links:
                 deal_url = retailer_links[0]
-            else:
+            elif all_links:
                 deal_url = all_links[0]
 
-        title = entry.get("title", "")
         original, sale, discount = extract_prices(title)
         retailer = extract_retailer(deal_url)
         game_name = extract_game_name(title)
-
-        posted_at = None
-        if hasattr(entry, "published_parsed") and entry.published_parsed:
-            posted_at = datetime(*entry.published_parsed[:6]).isoformat()
-        elif hasattr(entry, "updated_parsed") and entry.updated_parsed:
-            posted_at = datetime(*entry.updated_parsed[:6]).isoformat()
 
         deals.append({
             "reddit_post_id": post_id,
