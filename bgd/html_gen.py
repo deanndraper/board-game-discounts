@@ -544,9 +544,11 @@ def generate(conn, config: dict):
     output_dir = html_cfg.get("output_dir", "docs")
     max_deals = html_cfg.get("max_deals_shown", 200)
 
-    # Get all deals (not just active) for the table
+    # Get only specific deals (exclude questions, discussions, generic sales, etc.)
     deals = conn.execute("""
-        SELECT * FROM deals ORDER BY discount_pct DESC, discovered_at DESC LIMIT ?
+        SELECT * FROM deals
+        WHERE post_type IS NULL OR post_type = 'specific_deal'
+        ORDER BY discount_pct DESC, discovered_at DESC LIMIT ?
     """, (max_deals,)).fetchall()
     deals_list = [dict(d) for d in deals]
 
