@@ -39,7 +39,8 @@ logging:
 models:
   classify: "haiku"
   enrich: "haiku"
-  bgg: "haiku"
+  bgg: "haiku"          # stats lookup (factual)
+  bgg_ids: "sonnet"     # ID lookup (needs web search + reasoning)
   deep_verify: "sonnet"
   self_heal: ""  # empty = use default (opus)
 

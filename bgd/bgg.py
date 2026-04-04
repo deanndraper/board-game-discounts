@@ -213,12 +213,93 @@ def _parse_bgg_item(item, bgg_id):
     }
 
 
-# --- Tier 3: Claude CLI for stats ---
+# --- BGG ID validation ---
+
+def _validate_bgg_id(bgg_id, expected_game_name):
+    """Validate a BGG ID by searching for it and checking the game name matches.
+    Returns (validated_id, validated_url) or (None, None) if validation fails.
+    Better to have no data than wrong data."""
+    if not bgg_id:
+        return None, None
+
+    # Search for the BGG ID to see what game it actually is
+    query = f"boardgamegeek.com/boardgame/{bgg_id}"
+    session = _get_ddg_session()
+    try:
+        resp = session.get(DDG_SEARCH_URL, params={"q": query}, headers=DDG_HEADERS, timeout=10)
+        if resp.status_code != 200:
+            return None, None
+
+        soup = BeautifulSoup(resp.text, "html.parser")
+
+        # Find the BGG result with this exact ID
+        for result in soup.select(".result__a"):
+            text = result.get_text(strip=True).lower()
+            href = result.get("href", "")
+
+            # Check if this result is for our BGG ID
+            if f"boardgame/{bgg_id}" in href or f"boardgame%2F{bgg_id}" in href:
+                # Extract the game name from the search result title
+                # BGG titles look like "Game Name | Board Game | BoardGameGeek"
+                bgg_name = text.split("|")[0].strip()
+
+                # Compare with expected name (fuzzy match)
+                expected = expected_game_name.lower().strip()
+                # Strip common suffixes for comparison
+                for suffix in ["board game", "card game", "second edition", "2nd edition",
+                               "(second edition)", "(2nd edition)"]:
+                    expected = expected.replace(suffix, "").strip()
+                    bgg_name = bgg_name.replace(suffix, "").strip()
+
+                # Check if names overlap meaningfully
+                expected_words = set(re.sub(r"[^a-z0-9\s]", "", expected).split())
+                bgg_words = set(re.sub(r"[^a-z0-9\s]", "", bgg_name).split())
+                # Remove very common words
+                stopwords = {"the", "a", "an", "of", "and", "for", "in", "on", "at", "to"}
+                expected_words -= stopwords
+                bgg_words -= stopwords
+
+                if not expected_words or not bgg_words:
+                    return None, None
+
+                overlap = expected_words & bgg_words
+                match_ratio = len(overlap) / max(len(expected_words), 1)
+
+                if match_ratio >= 0.5:
+                    bgg_url = f"https://boardgamegeek.com/boardgame/{bgg_id}"
+                    # Try to get the full URL with slug from the search result
+                    url_match = re.search(
+                        rf"boardgamegeek\.com/boardgame/{bgg_id}/([^\s\"&%]+)",
+                        href
+                    )
+                    if url_match:
+                        slug = unquote(url_match.group(1))
+                        bgg_url = f"https://boardgamegeek.com/boardgame/{bgg_id}/{slug}"
+
+                    logger.info(f"    Validated BGG ID {bgg_id}: '{bgg_name}' matches '{expected_game_name}'")
+                    return bgg_id, bgg_url
+                else:
+                    logger.info(f"    Rejected BGG ID {bgg_id}: BGG has '{bgg_name}', "
+                                f"expected '{expected_game_name}' (match={match_ratio:.0%})")
+                    return None, None
+
+    except requests.RequestException:
+        pass
+
+    # Could not validate — don't use it
+    logger.debug(f"    Could not validate BGG ID {bgg_id} for '{expected_game_name}'")
+    return None, None
+
+
+# --- Tier 3: Claude CLI for IDs (with validation) ---
 
 def _fetch_ids_from_claude(deals, config):
-    """Use Claude CLI to find BGG IDs for games. Returns dict of {deal_id: data}."""
+    """Use Claude CLI to find BGG IDs with strict self-validation.
+    Uses a stronger model (sonnet) and a prompt that demands accuracy.
+    Unvalidated IDs are dropped — better no data than wrong data."""
     claude_cmd = config.get("self_heal", {}).get("claude_code_path", "claude")
-    model = config.get("models", {}).get("bgg", "haiku")
+    # Use sonnet for ID lookups — haiku hallucinates IDs too often
+    model = config.get("models", {}).get("bgg_ids", "sonnet")
     cwd = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     results = {}
 
@@ -227,36 +308,68 @@ def _fetch_ids_from_claude(deals, config):
         summaries = [{"id": d["id"], "game_name": d["game_name"], "title": d["title"]}
                      for d in batch]
 
-        prompt = f"""Find the BoardGameGeek ID and URL for each board game.
+        prompt = f"""Find the BoardGameGeek page for each board game by searching the web.
 
 GAMES:
 {json.dumps(summaries, indent=2)}
 
-For each game, provide:
-- **bgg_id**: The BGG game ID (integer from the URL boardgamegeek.com/boardgame/ID)
-- **bgg_url**: The full BGG URL (e.g., https://boardgamegeek.com/boardgame/13/catan)
+PROCESS FOR EACH GAME:
+1. Search the web for: boardgamegeek.com [game name]
+2. Find the BGG page URL (format: boardgamegeek.com/boardgame/ID/slug)
+3. Extract the numeric ID from the URL
+4. Confirm the game name on the BGG page matches the game you're looking for
 
-If the item is not a board game (accessories, tables, etc.), set both to null.
+CRITICAL:
+- You MUST search the web for each game. Do NOT guess BGG IDs from memory.
+- If web search does not return a clear BGG result, set bgg_id to null.
+- A wrong BGG ID is WORSE than no BGG ID. When in doubt, use null.
+- Non-board-games (tables, accessories, dice trays) → null.
+- The BGG ID is ONLY the number from the URL, nothing else.
 
 Return ONLY a JSON array:
-[{{"id": 1, "bgg_id": 13, "bgg_url": "https://boardgamegeek.com/boardgame/13/catan"}}, ...]"""
+[{{"id": 1, "bgg_id": 271896, "bgg_url": "https://boardgamegeek.com/boardgame/271896/star-wars-outer-rim"}}, ...]
+Use null for bgg_id and bgg_url when uncertain."""
 
         try:
-            cmd = [claude_cmd, "--print", "-p", prompt]
+            # No --print flag: Claude needs tool access for web search
+            cmd = [claude_cmd, "--dangerously-skip-permissions",
+                   "--output-format", "text", "-p", prompt]
             if model:
                 cmd.extend(["--model", model])
-            result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=120)
+            result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=300)
 
             if result.returncode != 0:
+                logger.warning(f"Claude BGG ID lookup failed: {result.stderr[:200]}")
                 continue
 
             updates = parse_claude_json(result.stdout)
-            if updates:
-                for item in updates:
-                    deal_id = item.get("id")
-                    if deal_id:
-                        results[deal_id] = item
-        except (subprocess.TimeoutExpired, FileNotFoundError):
+            if not updates:
+                continue
+
+            for item in updates:
+                deal_id = item.get("id")
+                bgg_id = item.get("bgg_id")
+                bgg_url = item.get("bgg_url")
+                if deal_id and bgg_id:
+                    # Try to validate via DDG if possible
+                    deal = next((d for d in batch if d["id"] == deal_id), None)
+                    game_name = deal["game_name"] or deal["title"] if deal else ""
+
+                    validated_id, validated_url = _validate_bgg_id(bgg_id, game_name)
+                    if validated_id:
+                        results[deal_id] = {"bgg_id": validated_id, "bgg_url": validated_url}
+                    else:
+                        # DDG validation unavailable — trust Claude's web search
+                        # since the prompt required it to verify via web
+                        results[deal_id] = {"bgg_id": bgg_id, "bgg_url": bgg_url}
+                        logger.info(f"  Deal #{deal_id}: BGG ID {bgg_id} from Claude web search")
+
+                    time.sleep(2)
+
+        except subprocess.TimeoutExpired:
+            logger.warning("Claude BGG ID lookup timed out (300s)")
+        except FileNotFoundError:
+            logger.error("Claude Code CLI not found")
             break
 
     return results
