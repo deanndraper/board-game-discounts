@@ -270,6 +270,40 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         .status-sold_out { background: #fef9c3; color: #854d0e; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.78rem; }
         .status-unverified { background: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.78rem; }
 
+        /* Deal tags */
+        .deal-tag {
+            display: inline-block;
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-size: 0.68rem;
+            font-weight: 500;
+            margin-right: 3px;
+        }
+        .tag-multistep { background: #fef9c3; color: #854d0e; }
+        .tag-coupon { background: #e0e7ff; color: #3730a3; }
+        .tag-limited { background: #fee2e2; color: #991b1b; }
+        .tag-preorder { background: #f3e8ff; color: #6b21a8; }
+        .tag-bundle { background: #dcfce7; color: #166534; }
+        .tag-used { background: #f1f5f9; color: #64748b; }
+        .tag-non-english { background: #fee2e2; color: #991b1b; }
+
+        /* Reddit link */
+        a.reddit-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            background: #fff2e8;
+            color: #ff4500;
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 700;
+            transition: all 0.15s;
+        }
+        a.reddit-link:hover { background: #ff4500; color: #fff; }
+
         /* Link button */
         a.deal-link {
             display: inline-flex;
@@ -514,6 +548,28 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     }
                 },
                 {
+                    title: "Tags",
+                    field: "tags",
+                    width: 120,
+                    headerFilter: "input",
+                    headerFilterPlaceholder: "Filter",
+                    formatter: function(cell) {
+                        var v = cell.getValue();
+                        if (!v) return "";
+                        var tags = v.split(",");
+                        var html = "";
+                        var labels = {"multistep":"Multi-step","coupon":"Coupon","limited":"Limited",
+                                      "preorder":"Pre-order","bundle":"Bundle","used":"Used",
+                                      "non-english":"Non-EN"};
+                        for (var i = 0; i < tags.length; i++) {
+                            var t = tags[i].trim();
+                            var label = labels[t] || t;
+                            html += '<span class="deal-tag tag-' + t + '">' + label + '</span>';
+                        }
+                        return html;
+                    }
+                },
+                {
                     title: "",
                     field: "url",
                     width: 50,
@@ -523,6 +579,20 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                         var url = cell.getValue();
                         if (url && url.indexOf("reddit.com") === -1 && url.indexOf("i.redd.it") === -1) {
                             return '<a class="deal-link" href="' + url + '" target="_blank" title="View deal">&#8599;</a>';
+                        }
+                        return "";
+                    }
+                },
+                {
+                    title: "",
+                    field: "reddit_url",
+                    width: 50,
+                    hozAlign: "center",
+                    headerSort: false,
+                    formatter: function(cell) {
+                        var url = cell.getValue();
+                        if (url) {
+                            return '<a class="reddit-link" href="' + url + '" target="_blank" title="View on Reddit">R</a>';
                         }
                         return "";
                     }
@@ -550,7 +620,16 @@ def generate(conn, config: dict):
         WHERE post_type IS NULL OR post_type = 'specific_deal'
         ORDER BY discount_pct DESC, discovered_at DESC LIMIT ?
     """, (max_deals,)).fetchall()
-    deals_list = [dict(d) for d in deals]
+    deals_list = []
+    for d in deals:
+        deal = dict(d)
+        # Compute Reddit URL from post ID
+        post_id = deal.get("reddit_post_id", "")
+        if post_id and post_id.startswith("t3_"):
+            deal["reddit_url"] = f"https://www.reddit.com/r/Boardgamedeals/comments/{post_id[3:]}/"
+        else:
+            deal["reddit_url"] = None
+        deals_list.append(deal)
 
     # Stats
     stats = db.get_db_stats(conn)

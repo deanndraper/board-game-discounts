@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS deals (
     bgg_weight REAL,
     bgg_url TEXT,
     post_type TEXT,
+    tags TEXT,
     notes TEXT
 );
 
@@ -265,6 +266,7 @@ def migrate_db(conn):
         "bgg_weight": "REAL",
         "bgg_url": "TEXT",
         "post_type": "TEXT",
+        "tags": "TEXT",
     }
     for col, col_type in new_cols.items():
         if col not in columns:

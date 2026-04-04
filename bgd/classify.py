@@ -35,7 +35,61 @@ PRICE_PATTERN = re.compile(r"\$\d+(?:\.\d{2})?")
 PERCENT_OFF = re.compile(r"(\d+)\s*(%\s*off|percent\s*off)", re.IGNORECASE)
 IMAGE_DOMAINS = {"i.redd.it", "preview.redd.it", "imgur.com"}
 
+# Non-English signals
+NON_ENGLISH_CURRENCIES = re.compile(r"[€£¥₹₩]")
+NON_ENGLISH_URL_PATHS = re.compile(r"/(?:fr|de|es|it|jp|nl|pt|pl|ru|ko|zh)/", re.IGNORECASE)
+NON_ENGLISH_RETAILERS = {"philibertnet.com", "fantasywelt.de", "brettspielversand.de",
+                         "philibert.com", "milan-spiele.de", "spieletaxi.de"}
+
+# Multi-step / tag detection patterns
+MULTISTEP_PATTERNS = re.compile(
+    r"(subscribe|newsletter|sign\s*up|membership|member\s*only|"
+    r"add\s*to\s*cart|log\s*in\s*to\s*see|register\s*to)",
+    re.IGNORECASE,
+)
+COUPON_PATTERNS = re.compile(
+    r"(coupon|promo\s*code|discount\s*code|use\s*code|code[:\s])",
+    re.IGNORECASE,
+)
+LIMITED_PATTERNS = re.compile(r"(limited\s*(quantity|stock|time)|only\s*\d+\s*left|while\s*supplies)", re.IGNORECASE)
+PREORDER_PATTERNS = re.compile(r"(pre.?order|preorder)", re.IGNORECASE)
+BUNDLE_PATTERNS = re.compile(r"(bundle|\+.*\+|buy\s*\d+\s*get)", re.IGNORECASE)
+USED_PATTERNS = re.compile(r"(used|open\s*box|like\s*new|pre.?owned)", re.IGNORECASE)
+
 CLASSIFY_BATCH_SIZE = 20
+
+
+def _detect_tags(title, url):
+    """Detect deal tags from title and URL. Returns a list of tag strings."""
+    tags = []
+
+    # Non-English
+    if NON_ENGLISH_CURRENCIES.search(title):
+        tags.append("non-english")
+    if url:
+        from urllib.parse import urlparse
+        domain = urlparse(url).netloc.lower().replace("www.", "")
+        if domain in NON_ENGLISH_RETAILERS:
+            if "non-english" not in tags:
+                tags.append("non-english")
+        if NON_ENGLISH_URL_PATHS.search(url):
+            if "non-english" not in tags:
+                tags.append("non-english")
+
+    if MULTISTEP_PATTERNS.search(title):
+        tags.append("multistep")
+    if COUPON_PATTERNS.search(title):
+        tags.append("coupon")
+    if LIMITED_PATTERNS.search(title):
+        tags.append("limited")
+    if PREORDER_PATTERNS.search(title):
+        tags.append("preorder")
+    if BUNDLE_PATTERNS.search(title):
+        tags.append("bundle")
+    if USED_PATTERNS.search(title):
+        tags.append("used")
+
+    return tags
 
 
 def _heuristic_classify(title, url):
@@ -43,6 +97,16 @@ def _heuristic_classify(title, url):
     Returns (post_type, confidence) or (None, 0) for ambiguous."""
     title = title.strip()
     has_price = bool(PRICE_PATTERN.search(title))
+
+    # 0. Non-English sites → other
+    if url:
+        from urllib.parse import urlparse
+        domain = urlparse(url).netloc.lower().replace("www.", "")
+        if domain in NON_ENGLISH_RETAILERS:
+            return "other", 0.95
+    if NON_ENGLISH_CURRENCIES.search(title) and not has_price:
+        # Has € but no $ — likely non-English deal
+        return "other", 0.85
     has_percent = bool(PERCENT_OFF.search(title))
 
     # 1. Meta tags
@@ -137,11 +201,15 @@ def classify_deals(config, conn):
     # Tier 1: heuristics
     for deal in deals:
         post_type, confidence = _heuristic_classify(deal["title"], deal["url"])
+        tags = _detect_tags(deal["title"], deal["url"])
+        tags_str = ",".join(tags) if tags else None
+
         if post_type and confidence >= 0.6:
-            db.update_deal_fields(conn, deal["id"], post_type=post_type)
+            db.update_deal_fields(conn, deal["id"], post_type=post_type, tags=tags_str)
             stats["classified"] += 1
             stats["heuristic"] += 1
-            logger.info(f"  #{deal['id']}: {post_type} (heuristic, {confidence:.0%}) — {deal['title'][:50]}")
+            tag_info = f" tags=[{tags_str}]" if tags_str else ""
+            logger.info(f"  #{deal['id']}: {post_type} (heuristic, {confidence:.0%}){tag_info} — {deal['title'][:50]}")
         else:
             ambiguous.append(deal)
 
