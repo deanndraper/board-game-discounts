@@ -143,15 +143,22 @@ def verify_deal(conn, deal, config: dict) -> str:
 
     # Step 1: HTTP check
     http_definitive_fail = False
+    # Retailers that commonly return false 404s (bot-detection, URL rotation)
+    false_404_domains = ("amazon.com", "walmart.com", "target.com")
+    is_false_404_prone = any(d in (url or "") for d in false_404_domains)
+
     if "http_check" in methods:
         check = http_check(url, timeout)
         details["http_check"] = check
         if not check["ok"]:
             status_code = check.get("status_code", 0)
-            if status_code in (404, 410):
+            if status_code in (404, 410) and not is_false_404_prone:
                 new_status = "expired"
                 http_definitive_fail = True
                 logger.info(f"  Deal {deal_id}: HTTP {status_code} → expired")
+            elif status_code in (404, 410) and is_false_404_prone:
+                # Major retailers often return false 404s — don't treat as definitive
+                logger.info(f"  Deal {deal_id}: HTTP {status_code} from {url[:40]} (false-404-prone retailer), will try browser")
             elif status_code in (403, 503):
                 # Bot-blocked — don't count as failure, still try browser check
                 logger.info(f"  Deal {deal_id}: HTTP {status_code} (likely bot-blocked), will try browser")

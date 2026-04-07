@@ -34,6 +34,29 @@ CREATE TABLE IF NOT EXISTS deals (
 
 CREATE INDEX IF NOT EXISTS idx_deals_status ON deals(status);
 
+CREATE TABLE IF NOT EXISTS recipients (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT,
+    cell TEXT,
+    active INTEGER DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS deal_notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    deal_id INTEGER NOT NULL,
+    recipient_id INTEGER NOT NULL,
+    notified_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    method TEXT,
+    FOREIGN KEY (deal_id) REFERENCES deals(id),
+    FOREIGN KEY (recipient_id) REFERENCES recipients(id),
+    UNIQUE(deal_id, recipient_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_deal_notifications_deal ON deal_notifications(deal_id);
+CREATE INDEX IF NOT EXISTS idx_deal_notifications_recipient ON deal_notifications(recipient_id);
+
 CREATE TABLE IF NOT EXISTS verification_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     deal_id INTEGER NOT NULL,
@@ -272,6 +295,52 @@ def migrate_db(conn):
         if col not in columns:
             conn.execute(f"ALTER TABLE deals ADD COLUMN {col} {col_type}")
     conn.commit()
+
+
+def get_active_recipients(conn):
+    """Get all active recipients."""
+    return conn.execute("SELECT * FROM recipients WHERE active = 1").fetchall()
+
+
+def get_unnotified_deals_for_recipient(conn, recipient_id):
+    """Get active specific_deal posts that haven't been sent to this recipient."""
+    return conn.execute("""
+        SELECT d.* FROM deals d
+        WHERE d.status = 'active'
+          AND d.post_type = 'specific_deal'
+          AND d.id NOT IN (
+              SELECT dn.deal_id FROM deal_notifications dn
+              WHERE dn.recipient_id = ?
+          )
+        ORDER BY d.discovered_at DESC
+    """, (recipient_id,)).fetchall()
+
+
+def record_notification(conn, deal_id, recipient_id, method):
+    """Record that a deal notification was sent."""
+    try:
+        conn.execute("""
+            INSERT INTO deal_notifications (deal_id, recipient_id, method)
+            VALUES (?, ?, ?)
+        """, (deal_id, recipient_id, method))
+        conn.commit()
+    except sqlite3.IntegrityError:
+        pass  # already notified
+
+
+def mark_deals_notified_bulk(conn, deal_ids, recipient_id, method):
+    """Mark multiple deals as notified for a recipient."""
+    for deal_id in deal_ids:
+        record_notification(conn, deal_id, recipient_id, method)
+
+
+def add_recipient(conn, name, email=None, cell=None):
+    """Add a new recipient. Returns the row id."""
+    cursor = conn.execute("""
+        INSERT INTO recipients (name, email, cell) VALUES (?, ?, ?)
+    """, (name, email, cell))
+    conn.commit()
+    return cursor.lastrowid
 
 
 def get_unclassified_deals(conn):

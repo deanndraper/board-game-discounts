@@ -49,6 +49,14 @@ models:
 bgg:
   api_token: ""
 
+# Notifications
+notify:
+  enabled: true            # flip to false to deactivate
+  max_individual: 10       # above this, send a summary instead
+
+# Recipients are stored in the DB. Add via:
+#   python -c "from bgd.db import *; conn=init_db(); add_recipient(conn, 'Dean', cell='+15551234567')"
+
 # Self-healing
 self_heal:
   enabled: true

@@ -16,6 +16,7 @@ Python CLI tool that monitors r/boardgamedeals via RSS, verifies deals on retail
   - `html_gen.py` — Tabulator.js HTML generator (matches digital-board-gamer style)
   - `publisher.py` — Git commit/push for GitHub Pages
   - `logger.py` — Rotating file logger
+  - `notify.py` — iMessage/email notifications for new deals (standalone)
   - `self_heal.py` — Error triage via Claude Code CLI
 - `config.yaml` — All configuration (including model selection per step)
 - `docs/` — GitHub Pages output
@@ -34,6 +35,7 @@ python main.py deep-verify  # Intelligent verification via Claude CLI
 python main.py generate     # Regenerate HTML
 python main.py publish      # Git commit & push docs/
 python main.py status       # Show DB stats + classification breakdown
+python main.py notify       # Send iMessage/email for new deals (standalone, not in pipeline)
 ```
 
 ## Pipeline Flow

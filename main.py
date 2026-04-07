@@ -7,7 +7,7 @@ import traceback
 
 import yaml
 
-from bgd import db, rss, verify, html_gen, publisher, self_heal, enrich, deep_verify, bgg, classify
+from bgd import db, rss, verify, html_gen, publisher, self_heal, enrich, deep_verify, bgg, classify, notify
 from bgd.logger import setup_logger
 
 
@@ -95,6 +95,13 @@ def cmd_deep_verify(config, conn, logger):
     return stats
 
 
+def cmd_notify(config, conn, logger):
+    """Send notifications for new deals to configured recipients."""
+    stats = notify.send_notifications(config, conn)
+    logger.info(f"Notify: {stats['sent']} sent, {stats['skipped']} skipped")
+    return stats
+
+
 def cmd_run(config, conn, logger):
     """Full pipeline: fetch → classify → enrich → bgg → verify → generate → publish."""
     run_id = db.start_run(conn)
@@ -169,7 +176,7 @@ def cmd_run(config, conn, logger):
 def main():
     parser = argparse.ArgumentParser(description="Board Game Discounts")
     parser.add_argument("command", choices=["run", "fetch", "classify", "verify", "generate", "publish",
-                                             "status", "enrich", "deep-verify", "bgg"],
+                                             "status", "enrich", "deep-verify", "bgg", "notify"],
                         help="Command to execute")
     parser.add_argument("--config", default="config.yaml", help="Config file path")
     args = parser.parse_args()
@@ -202,6 +209,8 @@ def main():
             cmd_deep_verify(config, conn, logger)
         elif args.command == "bgg":
             cmd_bgg(config, conn, logger)
+        elif args.command == "notify":
+            cmd_notify(config, conn, logger)
     except Exception as e:
         logger.error(f"Fatal error in '{args.command}': {e}", exc_info=True)
         error_context = (
