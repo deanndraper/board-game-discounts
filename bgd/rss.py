@@ -68,7 +68,15 @@ def fetch_deals(config: dict) -> list[dict]:
     max_posts = reddit_cfg.get("max_posts", 50)
 
     logger.info(f"Fetching RSS feed: {feed_url}")
-    resp = requests.get(feed_url, headers={"User-Agent": "BoardGameDeals/1.0"}, timeout=15)
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+    resp = requests.get(feed_url, headers=headers, timeout=15)
+    if resp.status_code == 403 and "reddit.com" in feed_url:
+        # Try old.reddit.com as fallback
+        fallback_url = feed_url.replace("www.reddit.com", "old.reddit.com")
+        logger.info(f"Got 403, retrying with old.reddit.com: {fallback_url}")
+        resp = requests.get(fallback_url, headers=headers, timeout=15)
     resp.raise_for_status()
 
     # Parse Atom/RSS with stdlib ElementTree
