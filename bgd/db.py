@@ -82,8 +82,34 @@ CREATE TABLE IF NOT EXISTS run_log (
 """
 
 
+def _is_valid_sqlite(path):
+    try:
+        with open(path, 'rb') as f:
+            return f.read(16) == b'SQLite format 3\x00'
+    except OSError:
+        return False
+
+
+def _recover_from_dump(path):
+    dump_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "deals_dump.sql")
+    if not os.path.exists(dump_path):
+        return False
+    try:
+        os.remove(path)
+        conn = sqlite3.connect(path)
+        with open(dump_path, 'r') as f:
+            conn.executescript(f.read())
+        conn.commit()
+        conn.close()
+        return True
+    except Exception:
+        return False
+
+
 def get_connection(db_path=None):
     path = db_path or DB_PATH
+    if os.path.exists(path) and not _is_valid_sqlite(path):
+        _recover_from_dump(path)
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
