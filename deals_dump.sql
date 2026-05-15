@@ -304,7 +304,7 @@ INSERT INTO "verification_log" VALUES(201,16,'2026-05-13T08:07:08.760423','http_
 INSERT INTO "verification_log" VALUES(202,17,'2026-05-13T08:07:08.760423','http_check','active',200,NULL);
 INSERT INTO "verification_log" VALUES(203,18,'2026-05-13T08:07:08.760423','http_check','active',200,NULL);
 INSERT INTO "verification_log" VALUES(204,19,'2026-05-13T08:07:08.760423','http_check','active',200,NULL);
-INSERT INTO "verification_log" VALUES(205,20,'2026-05-13T08:07:08.760423','http_check','active',200,tml);
+INSERT INTO "verification_log" VALUES(205,20,'2026-05-13T08:07:08.760423','http_check','active',200,NULL);
 INSERT INTO "verification_log" VALUES(206,21,'2026-05-13T08:07:08.760423','http_check','active',200,NULL);
 INSERT INTO "verification_log" VALUES(207,22,'2026-05-13T08:07:08.760423','http_check','active',200,NULL);
 INSERT INTO "verification_log" VALUES(208,23,'2026-05-13T08:07:08.760423','http_check','active',200,NULL);

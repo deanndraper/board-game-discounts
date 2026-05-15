@@ -240,3 +240,9 @@ Traceback (most recent call last):
   File "/root/.local/lib/python3.11/site-packages/requests/models.py", 
 **Status:** Unresolved after max retries
 **Action needed:** Manual investigation required
+
+## NEEDS MANUAL REVIEW - 2026-05-15 08:06 UTC
+**What:** Self-healing failed to resolve pipeline error
+**Error:** Command: python main.py fetch — Reddit RSS returning 403 Forbidden (ongoing issue)
+**Status:** Unresolved after max retries
+**Action needed:** Manual investigation required
