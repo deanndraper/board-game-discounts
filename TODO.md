@@ -348,3 +348,9 @@ Traceback (most recent call last):
   File "/home/user/board-game-discounts/venv/lib/python3.11/site-packag
 **Status:** Unresolved after max retries
 **Action needed:** Manual investigation required
+
+## NEEDS MANUAL REVIEW - 2026-05-24 08:06 UTC
+**What:** Self-healing failed to resolve pipeline error
+**Error:** Command: python main.py fetch — Reddit RSS returning 403 Forbidden (ongoing issue since 2026-04-04)
+**Status:** Unresolved after max retries
+**Action needed:** Manual investigation required
