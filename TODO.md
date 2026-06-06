@@ -498,3 +498,19 @@ Traceback (most recent call last):
   File "/home/user/board-game-discounts/venv/lib/python3.11/site-packag
 **Status:** Unresolved after max retries
 **Action needed:** Manual investigation required
+
+## NEEDS MANUAL REVIEW - 2026-06-06 08:07 UTC
+**What:** Self-healing failed to resolve pipeline error
+**Error:** Command: python main.py fetch
+Traceback:
+Traceback (most recent call last):
+  File "/home/user/board-game-discounts/main.py", line 195, in main
+    cmd_fetch(config, conn, logger)
+  File "/home/user/board-game-discounts/main.py", line 21, in cmd_fetch
+    deals = rss.fetch_deals(config)
+            ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/user/board-game-discounts/bgd/rss.py", line 80, in fetch_deals
+    resp.raise_for_status()
+requests.exceptions.HTTPError: 403 Client Error: Forbidden for url: https://old.reddit.com/r/boardgamedeals/new/.rss
+**Status:** Unresolved after max retries
+**Action needed:** Reddit RSS feed is blocked (403). Consider using Reddit API with OAuth or PRAW library.
