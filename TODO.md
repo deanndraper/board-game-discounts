@@ -633,3 +633,20 @@ Traceback (most recent call last):
   File "/home/user/board-game-discounts/venv/lib/python3.11/site-packag
 **Status:** Unresolved after max retries
 **Action needed:** Manual investigation required
+
+## NEEDS MANUAL REVIEW - 2026-06-17 13:00 UTC
+**What:** Self-healing failed to resolve pipeline error
+**Error:** Command: python main.py fetch
+Traceback:
+Traceback (most recent call last):
+  File "/home/user/board-game-discounts/main.py", line 195, in main
+    cmd_fetch(config, conn, logger)
+  File "/home/user/board-game-discounts/main.py", line 21, in cmd_fetch
+    deals = rss.fetch_deals(config)
+            ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/user/board-game-discounts/bgd/rss.py", line 120, in fetch_deals
+    return _fetch_via_json(subreddit, max_posts)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+**Status:** Unresolved after max retries
+**Action needed:** Manual investigation required
