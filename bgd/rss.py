@@ -25,6 +25,8 @@ KNOWN_RETAILERS = {
 }
 
 PRICE_PATTERN = re.compile(r"\$(\d+(?:\.\d{2})?)")
+# Shipping threshold patterns like "$35+" to strip before price extraction
+_SHIPPING_THRESHOLD_RE = re.compile(r"\$\d+\+\s*(orders?|shipping)?", re.IGNORECASE)
 
 
 def extract_retailer(url: str) -> str:
@@ -39,6 +41,7 @@ def extract_retailer(url: str) -> str:
 
 def extract_prices(title: str):
     """Try to extract prices from the deal title. Returns (original, sale, discount_pct)."""
+    title = _SHIPPING_THRESHOLD_RE.sub("", title)
     prices = [float(p) for p in PRICE_PATTERN.findall(title)]
     if len(prices) >= 2:
         original = max(prices)
@@ -61,37 +64,45 @@ def extract_game_name(title: str) -> str:
     return cleaned if cleaned else title
 
 
-def fetch_deals(config: dict) -> list[dict]:
-    """Fetch deals from the Reddit RSS feed."""
-    reddit_cfg = config.get("reddit", {})
-    feed_url = reddit_cfg.get("feed_url", "https://www.reddit.com/r/boardgamedeals/new/.rss")
-    max_posts = reddit_cfg.get("max_posts", 50)
+NON_RETAILER_DOMAINS = {"boardgamegeek.com", "bgg.cc", "wikipedia.org", "imgur.com",
+                        "youtube.com", "youtu.be", "twitter.com", "x.com",
+                        "i.redd.it", "preview.redd.it", "v.redd.it", "slickdeals.net",
+                        "reddit.com"}
 
-    logger.info(f"Fetching RSS feed: {feed_url}")
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
-    resp = requests.get(feed_url, headers=headers, timeout=15)
-    if resp.status_code == 403 and "reddit.com" in feed_url:
-        # Try old.reddit.com as fallback
-        fallback_url = feed_url.replace("www.reddit.com", "old.reddit.com")
-        logger.info(f"Got 403, retrying with old.reddit.com: {fallback_url}")
-        resp = requests.get(fallback_url, headers=headers, timeout=15)
-    resp.raise_for_status()
 
-    # Parse Atom/RSS with stdlib ElementTree
-    root = ElementTree.fromstring(resp.content)
+def _extract_deal_url(post_url: str, content: str) -> str:
+    """Find the best retailer URL from post URL and content text."""
+    # href= links (HTML content)
+    href_links = re.findall(r'href="(https?://[^"]+)"', content)
+    # plain-text URLs (common in SlickDeals descriptions)
+    plain_links = re.findall(r'(?<!["\'])https?://\S+', content)
+    all_links = href_links + [u for u in plain_links if u not in href_links]
+
+    # Filter noise domains
+    candidates = [u for u in all_links
+                  if not any(nd in u.lower() for nd in NON_RETAILER_DOMAINS)]
+
+    known = [u for u in candidates
+             if extract_retailer(u) != urlparse(u).netloc.lower().replace("www.", "")]
+    if known:
+        return known[0]
+    if candidates:
+        return candidates[0]
+    # Fall back to the post URL if it's not a noise domain
+    if not any(nd in post_url.lower() for nd in NON_RETAILER_DOMAINS):
+        return post_url
+    return post_url
+
+
+def _parse_rss_content(content: bytes, max_posts: int, source_url: str = "") -> list[dict]:
+    """Parse Atom or RSS 2.0 feed content into deal dicts."""
+    root = ElementTree.fromstring(content)
     ns = {}
-    # Detect namespace from root tag
     if root.tag.startswith("{"):
         ns_uri = root.tag[1:root.tag.index("}")]
         ns = {"atom": ns_uri}
 
-    # Support both Atom (<entry>) and RSS 2.0 (<item>) feeds
-    if ns:
-        entries = root.findall(".//atom:entry", ns)
-    else:
-        entries = root.findall(".//item")
+    entries = root.findall(".//atom:entry", ns) if ns else root.findall(".//item")
 
     def _text(el, tag, ns_map):
         child = el.find(tag, ns_map) if ns_map else el.find(tag)
@@ -105,7 +116,6 @@ def fetch_deals(config: dict) -> list[dict]:
         if not s:
             return None
         try:
-            # Atom: 2024-01-01T12:00:00+00:00
             return datetime.fromisoformat(s.replace("Z", "+00:00")).replace(tzinfo=None).isoformat()
         except ValueError:
             pass
@@ -120,50 +130,29 @@ def fetch_deals(config: dict) -> list[dict]:
     deals = []
     for entry in entries[:max_posts]:
         if ns:
-            # Atom feed
             post_id = _text(entry, "atom:id", ns)
             title = _text(entry, "atom:title", ns)
-            reddit_url = _attr(entry, "atom:link[@rel='alternate']", "href", ns) or \
-                         _attr(entry, "atom:link", "href", ns)
-            content = _text(entry, "atom:content", ns) or _text(entry, "atom:summary", ns)
+            post_url = _attr(entry, "atom:link[@rel='alternate']", "href", ns) or \
+                       _attr(entry, "atom:link", "href", ns)
+            body = _text(entry, "atom:content", ns) or _text(entry, "atom:summary", ns)
             posted_at = _parse_date(_text(entry, "atom:published", ns) or _text(entry, "atom:updated", ns))
         else:
-            # RSS 2.0 feed
             post_id = _text(entry, "guid", {})
             title = _text(entry, "title", {})
-            reddit_url = _text(entry, "link", {})
-            content = _text(entry, "description", {})
+            post_url = _text(entry, "link", {})
+            body = _text(entry, "description", {})
             posted_at = _parse_date(_text(entry, "pubDate", {}))
 
-        if not reddit_url:
-            reddit_url = post_id
+        if not post_url:
+            post_url = post_id
 
-        # Extract all external links from content
-        deal_url = reddit_url
-        all_links = re.findall(r'href="(https?://(?!(?:www\.)?reddit\.com)[^"]+)"', content)
-
-        non_retailer = {"boardgamegeek.com", "bgg.cc", "wikipedia.org", "imgur.com",
-                        "youtube.com", "youtu.be", "twitter.com", "x.com",
-                        "i.redd.it", "preview.redd.it", "v.redd.it"}
-
-        if all_links:
-            retailer_links = [u for u in all_links
-                              if not any(nr in u.lower() for nr in non_retailer)]
-            known_retailer_links = [u for u in retailer_links
-                                    if extract_retailer(u) != urlparse(u).netloc.lower().replace("www.", "")]
-            if known_retailer_links:
-                deal_url = known_retailer_links[0]
-            elif retailer_links:
-                deal_url = retailer_links[0]
-            elif all_links:
-                deal_url = all_links[0]
-
+        deal_url = _extract_deal_url(post_url, body)
         original, sale, discount = extract_prices(title)
         retailer = extract_retailer(deal_url)
         game_name = extract_game_name(title)
 
         deals.append({
-            "reddit_post_id": post_id,
+            "reddit_post_id": post_id or post_url,
             "title": title,
             "url": deal_url,
             "retailer": retailer,
@@ -174,5 +163,36 @@ def fetch_deals(config: dict) -> list[dict]:
             "posted_at": posted_at,
         })
 
-    logger.info(f"Parsed {len(deals)} deals from RSS feed")
     return deals
+
+
+def _try_feed(url: str, max_posts: int) -> list[dict] | None:
+    """Fetch and parse a single RSS/Atom feed URL. Returns None on failure."""
+    headers = {"User-Agent": "board-game-discounts/1.0 (deal tracker script)"}
+    try:
+        resp = requests.get(url, headers=headers, timeout=15)
+        if not resp.ok:
+            logger.warning(f"Feed {url} returned {resp.status_code}")
+            return None
+        deals = _parse_rss_content(resp.content, max_posts, source_url=url)
+        logger.info(f"Parsed {len(deals)} deals from {url}")
+        return deals
+    except Exception as exc:
+        logger.warning(f"Feed {url} failed: {exc}")
+        return None
+
+
+def fetch_deals(config: dict) -> list[dict]:
+    """Fetch deals from configured RSS feeds, trying each in order until one succeeds."""
+    reddit_cfg = config.get("reddit", {})
+    primary_url = reddit_cfg.get("feed_url", "https://www.reddit.com/r/boardgamedeals/new/.rss")
+    alt_feeds = reddit_cfg.get("alternative_feeds", [])
+    max_posts = reddit_cfg.get("max_posts", 50)
+
+    for url in [primary_url] + list(alt_feeds):
+        logger.info(f"Trying feed: {url}")
+        deals = _try_feed(url, max_posts)
+        if deals is not None:
+            return deals
+
+    raise RuntimeError("All configured RSS feeds failed — no deals fetched")

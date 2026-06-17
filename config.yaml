@@ -2,6 +2,10 @@
 reddit:
   subreddit: boardgamedeals
   feed_url: "https://www.reddit.com/r/boardgamedeals/new/.rss"
+  # Fallback feeds tried in order when the primary is unreachable
+  alternative_feeds:
+    - "https://slickdeals.net/newsearch.php?q=board+game&searchin=first_word&sort=date&rss=1"
+    - "https://slickdeals.net/newsearch.php?q=tabletop+game&searchin=first_word&sort=date&rss=1"
   max_posts: 50
 
 # Deal verification

@@ -56,6 +56,21 @@ PREORDER_PATTERNS = re.compile(r"(pre.?order|preorder)", re.IGNORECASE)
 BUNDLE_PATTERNS = re.compile(r"(bundle|\+.*\+|buy\s*\d+\s*get)", re.IGNORECASE)
 USED_PATTERNS = re.compile(r"(used|open\s*box|like\s*new|pre.?owned)", re.IGNORECASE)
 
+# Items that are definitely not tabletop board games
+NON_TABLETOP_SIGNALS = re.compile(
+    r"(\bsteam\b|@ steam|@steam|\bpc game\b|online game code|dlc\b|"
+    r"gaming (mouse|keyboard|pc|headset|chair|monitor|laptop|controller)|"
+    r"wireless (mouse|keyboard|headset|earbuds?)|"
+    r"gaming pc\b|gaming laptop|"
+    r"h2ogo|inflatable|bouncer|water (slide|park)|"
+    r"playmobil|lego (city|technic|star wars|marvel|dc|duplo|friends)|"
+    r"nerf\b|action figure|remote.?control|rc (car|truck)|"
+    r"skullcandy|logitech|razer|corsair|steelseries|"
+    r"refurbished.*(headset|mouse|keyboard|speaker|earbuds?)|"
+    r"\bspeaker\b.*\$|\$.*\bspeaker\b)",
+    re.IGNORECASE,
+)
+
 CLASSIFY_BATCH_SIZE = 20
 
 
@@ -109,49 +124,52 @@ def _heuristic_classify(title, url):
         return "other", 0.85
     has_percent = bool(PERCENT_OFF.search(title))
 
-    # 1. Meta tags
+    # 1. Clearly not a tabletop game → other
+    if NON_TABLETOP_SIGNALS.search(title):
+        return "other", 0.92
+
+    # 2. Meta tags
     if META_TAGS.search(title):
         return "meta", 0.95
 
-    # 2. Discussion tags
+    # 3. Discussion tags
     if DISCUSSION_TAGS.search(title):
         return "discussion", 0.95
 
-    # 3. Question (ends with ? AND no price/retailer signals)
+    # 4. Question (ends with ? AND no price/retailer signals)
     if title.endswith("?") and not has_price:
         return "question", 0.9
 
-    # 4. Question starters without price
+    # 5. Question starters without price
     if QUESTION_STARTERS.match(title) and not has_price:
         return "question", 0.85
 
-    # 5. Specific deal: [Retailer] Game $XX.XX
+    # 6. Specific deal: [Retailer] Game $XX.XX
     if SPECIFIC_DEAL_BRACKET.search(title):
         return "specific_deal", 0.9
 
-    # 6. Has price + percent off = likely specific deal
+    # 7. Has price + percent off = likely specific deal
     if has_price and has_percent:
         return "specific_deal", 0.8
 
-    # 7. Has just a price with a game-like title (no generic signals)
+    # 8. Has just a price with a game-like title (no generic signals)
     if has_price and not GENERIC_SALE_SIGNALS.search(title):
         return "specific_deal", 0.7
 
-    # 8. Generic sale signals
+    # 9. Generic sale signals
     if GENERIC_SALE_SIGNALS.search(title):
         return "generic_sale", 0.8
 
-    # 9. Image-only post with no price
+    # 10. Image-only post with no price
     if url:
         from urllib.parse import urlparse
         domain = urlparse(url).netloc.lower().replace("www.", "")
         if domain in IMAGE_DOMAINS and not has_price:
-            # Image post with no price — could be a screenshot deal or other
             if has_percent:
                 return "specific_deal", 0.6
             return "other", 0.6
 
-    # 10. Percent off without explicit price — likely a deal mention
+    # 11. Percent off without explicit price — likely a deal mention
     if has_percent:
         return "specific_deal", 0.6
 
