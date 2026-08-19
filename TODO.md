@@ -1,652 +1,97 @@
 # Board Game Discounts — TODO
 
-Items below are suggested by the self-healing system.
-Check the **Approved** box to authorize implementation.
+Items below are suggested by the daily pipeline review. Check the **Approved** box to authorize implementation.
 
-## NEEDS MANUAL REVIEW - 2026-04-04 00:37 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-Traceback:
-Traceback (most recent call last):
-  File "/home/user/board-game-discounts/main.py", line 188, in main
-    cmd_fetch(config, conn, logger)
-  File "/home/user/board-game-discounts/main.py", line 21, in cmd_fetch
-    deals = rss.fetch_deals(config)
-            ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/board-game-discounts/bgd/rss.py", line 72, in fetch_deals
-    resp.raise_for_status()
-  File "/root/.local/lib/python3.11/site-packages/requests/models.py", 
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+---
 
-## NEEDS MANUAL REVIEW - 2026-04-04 17:21 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+## IMPROVEMENTS — 2026-08-19
 
-## NEEDS MANUAL REVIEW - 2026-04-05 08:01 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+### P1 · Correctness / Data Quality
 
-## NEEDS MANUAL REVIEW - 2026-04-06 08:13 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+- [ ] **Approved** — **Expand NON_TABLETOP_SIGNALS classifier regex** (`bgd/classify.py`)
 
-## NEEDS MANUAL REVIEW - 2026-04-07 08:22 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+  Four non-board-game deals are currently classified as `specific_deal` and shown to users:
+  - #195 Acer Gateway Chromebook (`laptop|chromebook` not in regex)
+  - #202 PC Games bundle (`\bpc game\b` pattern is case-sensitive — `(PC Games)` slips through)
+  - #209 Hasbro Game Night for Nintendo Switch (digital/console game)
+  - #211 FURINNO Study Table (`study table|desk|furniture` not in regex)
+  
+  Add to the existing `NON_TABLETOP_SIGNALS` pattern:
+  ```
+  \bchromebook\b | \blaptop\b | \btablet\b | study\s+table | office\s+desk |
+  \bfurniture\b | (?:hd|4k)\s+digital | (?:nintendo\s+)?switch\s*\) |
+  (pc|xbox|playstation|ps[45])\s+game\b
+  ```
+  Also make the `\bpc game\b` sub-pattern case-insensitive (`re.IGNORECASE` already applies to the whole pattern — confirm the flags are set).
 
-## NEEDS MANUAL REVIEW - 2026-04-08 08:34 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+- [ ] **Approved** — **Auto-expire old unverified reddit-only deals** (`bgd/verify.py`)
 
-## NEEDS MANUAL REVIEW - 2026-04-11 08:32 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+  75 of 121 active/unverified deals are **over 30 days old**. Many are Reddit-URL deals that can never be verified and so stay `active` forever. Add a rule: if a deal has `status = unverified` and `posted_at` is older than `max_age_days` (suggest 21 days, configurable in `config.yaml`), mark it `expired` during the verification pass. Active deals with verified retailer links should get a longer window (suggest 45 days).
 
-## NEEDS MANUAL REVIEW - 2026-04-12 08:22 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+- [ ] **Approved** — **Fix case-sensitivity in NON_TABLETOP_SIGNALS** (`bgd/classify.py`)
 
-## NEEDS MANUAL REVIEW - 2026-04-13 08:40 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+  `re.compile(..., re.IGNORECASE)` is already set on the pattern — but verify that `\bpc game\b` is included in the same compiled expression rather than a separate uncompiled check.
 
-## NEEDS MANUAL REVIEW - 2026-04-14 08:07 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+---
 
-## NEEDS MANUAL REVIEW - 2026-04-15 08:17 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+### P2 · Performance
 
-## NEEDS MANUAL REVIEW - 2026-04-16 08:07 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+- [ ] **Approved** — **Parallel deal verification** (`bgd/verify.py`)
 
-## NEEDS MANUAL REVIEW - 2026-04-17 08:04 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+  `verify_all()` is sequential: 74 deals × ~5 s each ≈ 6 minutes. Use `concurrent.futures.ThreadPoolExecutor(max_workers=8)` to run `verify_deal()` concurrently. Each deal touches a different URL so there are no shared-state conflicts; just pass the connection per-thread or use a lock around DB writes.
 
-## NEEDS MANUAL REVIEW - 2026-04-19 08:14 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+- [ ] **Approved** — **Persist venv between sessions** (root-level)
 
-## NEEDS MANUAL REVIEW - 2026-04-20 08:05 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+  The daily pipeline recreates `venv/` and reinstalls all packages on every run because the environment is ephemeral. Add a `setup.sh` that creates the venv only if it doesn't already exist, and note in CLAUDE.md to call it rather than sourcing venv directly. This saves ~30 s of pip install on every run.
 
-## NEEDS MANUAL REVIEW - 2026-04-21 08:15 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+---
 
-## NEEDS MANUAL REVIEW - 2026-04-22 08:08 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+### P3 · Reliability
 
-## NEEDS MANUAL REVIEW - 2026-04-23 08:05 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+- [ ] **Approved** — **Suppress duplicate self-heal entries in TODO.md** (`bgd/self_heal.py`)
 
-## NEEDS MANUAL REVIEW - 2026-04-24 08:03 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+  The self-heal system added 60+ near-identical failure notices between 2026-04-04 and 2026-06-17, making TODO.md unreadable. Add a check: before appending a new `NEEDS MANUAL REVIEW` block, read the last N lines of TODO.md and skip if an identical `Error:` line was added within the last 7 days. Alternatively, consolidate repeats into a single entry that updates a "Last seen" timestamp.
 
-## NEEDS MANUAL REVIEW - 2026-04-25 08:24 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+- [ ] **Approved** — **GameNerdz / rate-limited retailers: exponential backoff** (`bgd/verify.py`)
 
-## NEEDS MANUAL REVIEW - 2026-04-27 08:09 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+  Deals #185, #142, #125 (all GameNerdz) return 429 on every run and stay in limbo. Add a per-domain retry delay: on 429, wait 2 s and retry once before counting as inconclusive. Also consider a domain-level consecutive-failure counter separate from the deal-level one, so a bot-blocked domain doesn't eventually expire valid deals.
 
-## NEEDS MANUAL REVIEW - 2026-04-29 08:05 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+- [ ] **Approved** — **Reddit RSS: add a browser-like User-Agent** (`bgd/rss.py`)
 
-## NEEDS MANUAL REVIEW - 2026-04-30 08:25 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+  The 2026-04-04 through 2026-06-17 outage was caused by Reddit blocking the custom `User-Agent` (`board-game-discounts/1.0`). The current code still uses this. Replace with a real browser User-Agent (e.g., Firefox on macOS) as a primary and keep `board-game-discounts/1.0` only in a secondary header. The feed is currently working — this is a preventive fix.
 
-## NEEDS MANUAL REVIEW - 2026-05-01 08:25 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+---
 
-## NEEDS MANUAL REVIEW - 2026-05-04 08:26 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+### P4 · Enrichment / BGG Data
 
-## NEEDS MANUAL REVIEW - 2026-05-05 08:02 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+- [ ] **Approved** — **BGG Search API for missing IDs** (`bgd/bgg.py` or new `bgd/enrich.py` step)
 
-## NEEDS MANUAL REVIEW - 2026-05-06 08:05 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+  BGG exposes a free XML search API: `https://boardgamegeek.com/xmlapi2/search?query=<game>&type=boardgame`. This requires no auth and returns IDs without needing a Claude CLI call or web search. Use it as a first pass for games missing `bgg_id` before falling back to LLM. Confirm the ID by checking the returned game name matches reasonably well (fuzzy string match).
 
-## NEEDS MANUAL REVIEW - 2026-05-07 08:10 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+- [ ] **Approved** — **Deal value score column** (`bgd/db.py`, `bgd/html_gen.py`)
 
-## NEEDS MANUAL REVIEW - 2026-05-08 08:02 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+  Add a computed `value_score` = `bgg_rating × (discount_pct / 100)` for deals where both fields exist. Expose it as a sortable column in the HTML table (Tabulator already supports custom sorters). This gives users a quick "best bang for your buck" ordering. Store it in the DB so it's queryable.
 
-## NEEDS MANUAL REVIEW - 2026-05-09 08:04 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+- [ ] **Approved** — **Age cap for enrichment attempts** (`bgd/enrich.py`)
 
-## NEEDS MANUAL REVIEW - 2026-05-10 08:15 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-Traceback:
-Traceback (most recent call last):
-  File "/home/user/board-game-discounts/main.py", line 195, in main
-    cmd_fetch(config, conn, logger)
-  File "/home/user/board-game-discounts/main.py", line 21, in cmd_fetch
-    deals = rss.fetch_deals(config)
-            ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/board-game-discounts/bgd/rss.py", line 80, in fetch_deals
-    resp.raise_for_status()
-  File "/root/.local/lib/python3.11/site-packages/requests/models.py", 
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+  Currently `enrich` runs on any active/unverified deal missing data, regardless of age. Deals over 14 days old are unlikely to benefit from enrichment (the game may have sold out by the time a user sees it). Add a `WHERE posted_at > datetime('now', '-14 days')` filter to the enrichment query.
 
-## NEEDS MANUAL REVIEW - 2026-05-11 08:08 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-Traceback:
-Traceback (most recent call last):
-  File "/home/user/board-game-discounts/main.py", line 195, in main
-    cmd_fetch(config, conn, logger)
-  File "/home/user/board-game-discounts/main.py", line 21, in cmd_fetch
-    deals = rss.fetch_deals(config)
-            ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/board-game-discounts/bgd/rss.py", line 80, in fetch_deals
-    resp.raise_for_status()
-  File "/root/.local/lib/python3.11/site-packages/requests/models.py", 
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+---
 
-## NEEDS MANUAL REVIEW - 2026-05-14 08:09 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-Traceback:
-Traceback (most recent call last):
-  File "/home/user/board-game-discounts/main.py", line 195, in main
-    cmd_fetch(config, conn, logger)
-  File "/home/user/board-game-discounts/main.py", line 21, in cmd_fetch
-    deals = rss.fetch_deals(config)
-            ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/board-game-discounts/bgd/rss.py", line 80, in fetch_deals
-    resp.raise_for_status()
-  File "/root/.local/lib/python3.11/site-packages/requests/models.py", 
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+### P5 · Housekeeping
 
-## NEEDS MANUAL REVIEW - 2026-05-15 08:06 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch — Reddit RSS returning 403 Forbidden (ongoing issue)
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+- [ ] **Approved** — **Archive old self-heal log entries** (TODO.md)
 
-## NEEDS MANUAL REVIEW - 2026-05-16 08:03 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-Traceback:
-Traceback (most recent call last):
-  File "/home/user/board-game-discounts/main.py", line 195, in main
-    cmd_fetch(config, conn, logger)
-  File "/home/user/board-game-discounts/main.py", line 21, in cmd_fetch
-    deals = rss.fetch_deals(config)
-            ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/board-game-discounts/bgd/rss.py", line 80, in fetch_deals
-    resp.raise_for_status()
-  File "/home/user/board-game-discounts/venv/lib/python3.11/site-packag
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+  The April–June 2026 RSS-403 failure entries have been superseded — the feed is working again as of the current run. Archive or delete entries older than 90 days from TODO.md on each daily run. Suggested rule: self-heal entries older than 90 days are moved to `TODO_archive.md` instead of staying in the main file.
 
-## NEEDS MANUAL REVIEW - 2026-05-17 08:08 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-Traceback:
-Traceback (most recent call last):
-  File "/home/user/board-game-discounts/main.py", line 195, in main
-    cmd_fetch(config, conn, logger)
-  File "/home/user/board-game-discounts/main.py", line 21, in cmd_fetch
-    deals = rss.fetch_deals(config)
-            ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/board-game-discounts/bgd/rss.py", line 80, in fetch_deals
-    resp.raise_for_status()
-  File "/home/user/board-game-discounts/venv/lib/python3.11/site-packag
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+- [ ] **Approved** — **Index `posted_at` and `discovered_at` columns** (`bgd/db.py`)
 
-## NEEDS MANUAL REVIEW - 2026-05-18 08:04 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-Traceback:
-Traceback (most recent call last):
-  File "/home/user/board-game-discounts/main.py", line 195, in main
-    cmd_fetch(config, conn, logger)
-  File "/home/user/board-game-discounts/main.py", line 21, in cmd_fetch
-    deals = rss.fetch_deals(config)
-            ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/board-game-discounts/bgd/rss.py", line 80, in fetch_deals
-    resp.raise_for_status()
-  File "/home/user/board-game-discounts/venv/lib/python3.11/site-packag
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+  The age-based expiry and enrichment queries filter on `posted_at` which has no index. Add `CREATE INDEX IF NOT EXISTS idx_deals_posted_at ON deals(posted_at)` to the schema. With 224+ rows today this is cosmetic, but the table will grow.
 
-## NEEDS MANUAL REVIEW - 2026-05-19 08:01 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-Traceback:
-Traceback (most recent call last):
-  File "/home/user/board-game-discounts/main.py", line 195, in main
-    cmd_fetch(config, conn, logger)
-  File "/home/user/board-game-discounts/main.py", line 21, in cmd_fetch
-    deals = rss.fetch_deals(config)
-            ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/board-game-discounts/bgd/rss.py", line 80, in fetch_deals
-    resp.raise_for_status()
-  File "/home/user/board-game-discounts/venv/lib/python3.11/site-packag
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+- [ ] **Approved** — **Deduplicate deals at fetch time** (`bgd/rss.py` / `bgd/db.py`)
 
-## NEEDS MANUAL REVIEW - 2026-05-20 08:05 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-Traceback:
-Traceback (most recent call last):
-  File "/home/user/board-game-discounts/main.py", line 195, in main
-    cmd_fetch(config, conn, logger)
-  File "/home/user/board-game-discounts/main.py", line 21, in cmd_fetch
-    deals = rss.fetch_deals(config)
-            ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/board-game-discounts/bgd/rss.py", line 80, in fetch_deals
-    resp.raise_for_status()
-  File "/root/.local/lib/python3.11/site-packages/requests/models.py", 
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+  Deals #196 and #201 are both "Elbow Room Games 3-in-1 Chess, Checkers & Backgammon" at nearly the same price from the same retailer, posted a few days apart. Add a soft-duplicate check at insert time: if a deal with the same `game_name` and `retailer` already exists and was posted within 7 days, log a warning and skip the insert (or merge into the existing record).
 
-## NEEDS MANUAL REVIEW - 2026-05-21 08:07 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch — Reddit RSS returning 403 Forbidden (ongoing issue since 2026-04-04)
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+---
 
-## NEEDS MANUAL REVIEW - 2026-05-23 08:04 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-Traceback:
-Traceback (most recent call last):
-  File "/home/user/board-game-discounts/main.py", line 195, in main
-    cmd_fetch(config, conn, logger)
-  File "/home/user/board-game-discounts/main.py", line 21, in cmd_fetch
-    deals = rss.fetch_deals(config)
-            ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/board-game-discounts/bgd/rss.py", line 80, in fetch_deals
-    resp.raise_for_status()
-  File "/home/user/board-game-discounts/venv/lib/python3.11/site-packag
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
-
-## NEEDS MANUAL REVIEW - 2026-05-24 08:06 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch — Reddit RSS returning 403 Forbidden (ongoing issue since 2026-04-04)
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
-
-## NEEDS MANUAL REVIEW - 2026-05-25 08:04 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-Traceback:
-Traceback (most recent call last):
-  File "/home/user/board-game-discounts/main.py", line 195, in main
-    cmd_fetch(config, conn, logger)
-  File "/home/user/board-game-discounts/main.py", line 21, in cmd_fetch
-    deals = rss.fetch_deals(config)
-            ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/board-game-discounts/bgd/rss.py", line 80, in fetch_deals
-    resp.raise_for_status()
-  File "/home/user/board-game-discounts/venv/lib/python3.11/site-packag
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
-
-## NEEDS MANUAL REVIEW - 2026-05-27 08:07 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-Traceback:
-Traceback (most recent call last):
-  File "/home/user/board-game-discounts/main.py", line 195, in main
-    cmd_fetch(config, conn, logger)
-  File "/home/user/board-game-discounts/main.py", line 21, in cmd_fetch
-    deals = rss.fetch_deals(config)
-            ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/board-game-discounts/bgd/rss.py", line 80, in fetch_deals
-    resp.raise_for_status()
-  File "/root/.local/lib/python3.11/site-packages/requests/models.py", 
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
-
-## NEEDS MANUAL REVIEW - 2026-05-28 08:08 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-Traceback:
-Traceback (most recent call last):
-  File "/home/user/board-game-discounts/main.py", line 195, in main
-    cmd_fetch(config, conn, logger)
-  File "/home/user/board-game-discounts/main.py", line 21, in cmd_fetch
-    deals = rss.fetch_deals(config)
-            ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/board-game-discounts/bgd/rss.py", line 80, in fetch_deals
-    resp.raise_for_status()
-  File "/root/.local/lib/python3.11/site-packages/requests/models.py", 
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
-
-## NEEDS MANUAL REVIEW - 2026-05-29 08:06 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-Traceback:
-Traceback (most recent call last):
-  File "/home/user/board-game-discounts/main.py", line 195, in main
-    cmd_fetch(config, conn, logger)
-  File "/home/user/board-game-discounts/main.py", line 21, in cmd_fetch
-    deals = rss.fetch_deals(config)
-            ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/board-game-discounts/bgd/rss.py", line 80, in fetch_deals
-    resp.raise_for_status()
-  File "/home/user/board-game-discounts/venv/lib/python3.11/site-packag
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
-
-## NEEDS MANUAL REVIEW - 2026-05-30 08:07 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-Traceback:
-Traceback (most recent call last):
-  File "/home/user/board-game-discounts/main.py", line 195, in main
-    cmd_fetch(config, conn, logger)
-  File "/home/user/board-game-discounts/main.py", line 21, in cmd_fetch
-    deals = rss.fetch_deals(config)
-            ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/board-game-discounts/bgd/rss.py", line 80, in fetch_deals
-    resp.raise_for_status()
-  File "/root/.local/lib/python3.11/site-packages/requests/models.py", 
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
-
-## NEEDS MANUAL REVIEW - 2026-05-31 08:07 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-Traceback:
-Traceback (most recent call last):
-  File "/home/user/board-game-discounts/main.py", line 195, in main
-    cmd_fetch(config, conn, logger)
-  File "/home/user/board-game-discounts/main.py", line 21, in cmd_fetch
-    deals = rss.fetch_deals(config)
-            ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/board-game-discounts/bgd/rss.py", line 80, in fetch_deals
-    resp.raise_for_status()
-  File "/root/.local/lib/python3.11/site-packages/requests/models.py", 
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
-
-## NEEDS MANUAL REVIEW - 2026-06-03 08:07 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-Traceback:
-Traceback (most recent call last):
-  File "/home/user/board-game-discounts/main.py", line 195, in main
-    cmd_fetch(config, conn, logger)
-  File "/home/user/board-game-discounts/main.py", line 21, in cmd_fetch
-    deals = rss.fetch_deals(config)
-            ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/board-game-discounts/bgd/rss.py", line 80, in fetch_deals
-    resp.raise_for_status()
-  File "/home/user/board-game-discounts/venv/lib/python3.11/site-packag
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
-
-## NEEDS MANUAL REVIEW - 2026-06-04 08:07 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-Traceback:
-Traceback (most recent call last):
-  File "/home/user/board-game-discounts/main.py", line 195, in main
-    cmd_fetch(config, conn, logger)
-  File "/home/user/board-game-discounts/main.py", line 21, in cmd_fetch
-    deals = rss.fetch_deals(config)
-            ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/board-game-discounts/bgd/rss.py", line 80, in fetch_deals
-    resp.raise_for_status()
-  File "/home/user/board-game-discounts/venv/lib/python3.11/site-packag
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
-
-## NEEDS MANUAL REVIEW - 2026-06-05 08:07 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-Traceback:
-Traceback (most recent call last):
-  File "/home/user/board-game-discounts/main.py", line 195, in main
-    cmd_fetch(config, conn, logger)
-  File "/home/user/board-game-discounts/main.py", line 21, in cmd_fetch
-    deals = rss.fetch_deals(config)
-            ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/board-game-discounts/bgd/rss.py", line 80, in fetch_deals
-    resp.raise_for_status()
-  File "/home/user/board-game-discounts/venv/lib/python3.11/site-packag
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
-
-## NEEDS MANUAL REVIEW - 2026-06-06 08:07 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-Traceback:
-Traceback (most recent call last):
-  File "/home/user/board-game-discounts/main.py", line 195, in main
-    cmd_fetch(config, conn, logger)
-  File "/home/user/board-game-discounts/main.py", line 21, in cmd_fetch
-    deals = rss.fetch_deals(config)
-            ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/board-game-discounts/bgd/rss.py", line 80, in fetch_deals
-    resp.raise_for_status()
-requests.exceptions.HTTPError: 403 Client Error: Forbidden for url: https://old.reddit.com/r/boardgamedeals/new/.rss
-**Status:** Unresolved after max retries
-**Action needed:** Reddit RSS feed is blocked (403). Consider using Reddit API with OAuth or PRAW library.
-
-## NEEDS MANUAL REVIEW - 2026-06-07 08:05 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-Traceback:
-Traceback (most recent call last):
-  File "/home/user/board-game-discounts/main.py", line 195, in main
-    cmd_fetch(config, conn, logger)
-  File "/home/user/board-game-discounts/main.py", line 21, in cmd_fetch
-    deals = rss.fetch_deals(config)
-            ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/board-game-discounts/bgd/rss.py", line 80, in fetch_deals
-    resp.raise_for_status()
-  File "/home/user/board-game-discounts/venv/lib/python3.11/site-packag
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
-
-## NEEDS MANUAL REVIEW - 2026-06-08 08:06 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-Traceback:
-Traceback (most recent call last):
-  File "/home/user/board-game-discounts/main.py", line 195, in main
-    cmd_fetch(config, conn, logger)
-  File "/home/user/board-game-discounts/main.py", line 21, in cmd_fetch
-    deals = rss.fetch_deals(config)
-            ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/board-game-discounts/bgd/rss.py", line 80, in fetch_deals
-    resp.raise_for_status()
-  File "/home/user/board-game-discounts/venv/lib/python3.11/site-packag
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
-
-## NEEDS MANUAL REVIEW - 2026-06-09 08:07 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-Traceback:
-Traceback (most recent call last):
-  File "/home/user/board-game-discounts/main.py", line 195, in main
-    cmd_fetch(config, conn, logger)
-  File "/home/user/board-game-discounts/main.py", line 21, in cmd_fetch
-    deals = rss.fetch_deals(config)
-            ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/board-game-discounts/bgd/rss.py", line 80, in fetch_deals
-    resp.raise_for_status()
-  File "/root/.local/lib/python3.11/site-packages/requests/models.py", 
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
-
-## NEEDS MANUAL REVIEW - 2026-06-10 08:06 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-Traceback:
-Traceback (most recent call last):
-  File "/home/user/board-game-discounts/main.py", line 195, in main
-    cmd_fetch(config, conn, logger)
-  File "/home/user/board-game-discounts/main.py", line 21, in cmd_fetch
-    deals = rss.fetch_deals(config)
-            ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/board-game-discounts/bgd/rss.py", line 80, in fetch_deals
-    resp.raise_for_status()
-  File "/home/user/board-game-discounts/venv/lib/python3.11/site-packag
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
-
-## NEEDS MANUAL REVIEW - 2026-06-12 08:07 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-Traceback:
-Traceback (most recent call last):
-  File "/home/user/board-game-discounts/main.py", line 195, in main
-    cmd_fetch(config, conn, logger)
-  File "/home/user/board-game-discounts/main.py", line 21, in cmd_fetch
-    deals = rss.fetch_deals(config)
-            ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/board-game-discounts/bgd/rss.py", line 80, in fetch_deals
-    resp.raise_for_status()
-  File "/root/.local/lib/python3.11/site-packages/requests/models.py", 
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
-
-## NEEDS MANUAL REVIEW - 2026-06-13 08:05 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-Traceback:
-Traceback (most recent call last):
-  File "/home/user/board-game-discounts/main.py", line 195, in main
-    cmd_fetch(config, conn, logger)
-  File "/home/user/board-game-discounts/main.py", line 21, in cmd_fetch
-    deals = rss.fetch_deals(config)
-            ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/board-game-discounts/bgd/rss.py", line 80, in fetch_deals
-    resp.raise_for_status()
-  File "/home/user/board-game-discounts/venv/lib/python3.11/site-packag
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
-
-## NEEDS MANUAL REVIEW - 2026-06-15 08:07 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-**Error detail:** 403 Client Error: Forbidden for url: https://old.reddit.com/r/boardgamedeals/new/.rss
-**Status:** Unresolved after max retries
-**Action needed:** Reddit RSS feed is blocked (403). Consider using Reddit API with OAuth or PRAW library.
-
-## NEEDS MANUAL REVIEW - 2026-06-17 08:06 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-Traceback:
-Traceback (most recent call last):
-  File "/home/user/board-game-discounts/main.py", line 195, in main
-    cmd_fetch(config, conn, logger)
-  File "/home/user/board-game-discounts/main.py", line 21, in cmd_fetch
-    deals = rss.fetch_deals(config)
-            ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/board-game-discounts/bgd/rss.py", line 80, in fetch_deals
-    resp.raise_for_status()
-  File "/home/user/board-game-discounts/venv/lib/python3.11/site-packag
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
-
-## NEEDS MANUAL REVIEW - 2026-06-17 13:00 UTC
-**What:** Self-healing failed to resolve pipeline error
-**Error:** Command: python main.py fetch
-Traceback:
-Traceback (most recent call last):
-  File "/home/user/board-game-discounts/main.py", line 195, in main
-    cmd_fetch(config, conn, logger)
-  File "/home/user/board-game-discounts/main.py", line 21, in cmd_fetch
-    deals = rss.fetch_deals(config)
-            ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/user/board-game-discounts/bgd/rss.py", line 120, in fetch_deals
-    return _fetch_via_json(subreddit, max_posts)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-**Status:** Unresolved after max retries
-**Action needed:** Manual investigation required
+*Note: Items are for owner review — do not implement without checking the Approved box.*
