@@ -95,3 +95,19 @@ Items below are suggested by the daily pipeline review. Check the **Approved** b
 ---
 
 *Note: Items are for owner review — do not implement without checking the Approved box.*
+
+## NEEDS MANUAL REVIEW - 2026-10-18 08:45 UTC
+**What:** Self-healing failed to resolve pipeline error
+**Error:** Command: python main.py verify
+Traceback:
+Traceback (most recent call last):
+  File "/home/user/board-game-discounts/main.py", line 199, in main
+    cmd_verify(config, conn, logger)
+  File "/home/user/board-game-discounts/main.py", line 34, in cmd_verify
+    stats = verify.verify_all(conn, config)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/user/board-game-discounts/bgd/verify.py", line 246, in verify_all
+    deals = db.get_all_active_deals(conn)
+            ^^^^^^^^^^^^^^^^^^^^^^^
+**Status:** Unresolved after max retries
+**Action needed:** Manual investigation required
